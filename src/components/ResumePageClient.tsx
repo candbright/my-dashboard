@@ -1,0 +1,167 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Pencil, Code2, FileDown, Loader2, Globe, Lock, ArrowLeft } from 'lucide-react';
+import { ResumeDisplay } from './ResumeDisplay';
+import { ResumeEditor } from './ResumeEditor';
+import { ResumeSourceView } from './ResumeSourceView';
+import { usePdfExport } from '@/hooks/usePdfExport';
+import Link from 'next/link';
+import type { ResumeRecord } from '@/lib/types';
+import type { ParsedResume } from '@/lib/resume-parser';
+import { apiFetch } from '@/lib/api-client';
+
+type ViewMode = 'view' | 'edit' | 'source';
+
+interface Permissions {
+  canEdit: boolean;
+  canDelete: boolean;
+  canViewSource: boolean;
+  canExportPdf: boolean;
+  canChangeVisibility: boolean;
+  isOwner: boolean;
+  isAdmin: boolean;
+}
+
+interface ResumePageClientProps {
+  resume: ResumeRecord;
+  parsed: ParsedResume;
+  markdown: string;
+  permissions?: Permissions;
+}
+
+export function ResumePageClient({
+  resume: initialResume,
+  parsed: initialParsed,
+  markdown: initialMarkdown,
+  permissions = {
+    canEdit: false,
+    canDelete: false,
+    canViewSource: false,
+    canExportPdf: true,
+    canChangeVisibility: false,
+    isOwner: false,
+    isAdmin: false,
+  },
+}: ResumePageClientProps) {
+  const [mode, setMode] = useState<ViewMode>('view');
+  const [resume, setResume] = useState(initialResume);
+  const [parsed, setParsed] = useState(initialParsed);
+  const [markdown, setMarkdown] = useState(initialMarkdown);
+  const [changingVisibility, setChangingVisibility] = useState(false);
+  const { exportPdf, exporting } = usePdfExport();
+
+  const handleSave = useCallback(async (newMarkdown: string) => {
+    const res = await apiFetch(`/api/resumes/${resume.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ markdown: newMarkdown }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || '保存失败');
+    }
+
+    const data = await res.json();
+    setResume(data.resume);
+    setParsed(data.parsed);
+    setMarkdown(data.markdown);
+    setMode('view');
+  }, [resume.id]);
+
+  const handleExportPdf = useCallback(async () => {
+    try {
+      await exportPdf(resume, parsed);
+    } catch {
+      // error logged in hook
+    }
+  }, [exportPdf, resume, parsed]);
+
+  const handleToggleVisibility = useCallback(async () => {
+    const newVisibility = resume.visibility === 'public' ? 'private' : 'public';
+    if (!confirm(newVisibility === 'public' ? '申请公开此简历？' : '设为私人？')) return;
+
+    setChangingVisibility(true);
+    try {
+      const res = await apiFetch(`/api/resumes/${resume.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ visibility: newVisibility }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setResume(data.resume);
+      }
+    } catch {
+      // error silenced
+    } finally {
+      setChangingVisibility(false);
+    }
+  }, [resume]);
+
+  const btnClass = "p-2 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors disabled:opacity-50";
+
+  return (
+    <div className="relative">
+      {mode === 'view' && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.3 }}
+          className="fixed top-4 right-4 z-50 flex items-center gap-1.5"
+        >
+          <Link href="/" className={btnClass} title="返回">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+
+          {permissions.canExportPdf && (
+            <button onClick={handleExportPdf} disabled={exporting} className={btnClass} title="导出 PDF">
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+            </button>
+          )}
+
+          {permissions.canChangeVisibility && (
+            <button onClick={handleToggleVisibility} disabled={changingVisibility} className={btnClass}
+              title={resume.visibility === 'public' ? '设为私人' : '申请公开'}>
+              {changingVisibility ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                resume.visibility === 'public' ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+            </button>
+          )}
+
+          {permissions.canEdit && (
+            <button onClick={() => setMode('edit')} className={btnClass} title="编辑">
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+
+          {permissions.canViewSource && (
+            <button onClick={() => setMode('source')} className={btnClass} title="源码">
+              <Code2 className="w-4 h-4" />
+            </button>
+          )}
+        </motion.div>
+      )}
+
+      <AnimatePresence mode="wait">
+        {mode === 'view' && (
+          <motion.div key="view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <ResumeDisplay resume={resume} parsed={parsed} />
+          </motion.div>
+        )}
+
+        {mode === 'edit' && (
+          <motion.div key="edit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <ResumeEditor resume={resume} parsed={parsed} onSave={handleSave} onCancel={() => setMode('view')} />
+          </motion.div>
+        )}
+
+        {mode === 'source' && (
+          <motion.div key="source" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <ResumeSourceView markdown={markdown} onBack={() => setMode('view')} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
