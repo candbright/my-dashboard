@@ -42,11 +42,11 @@ export interface SafeUser {
 }
 
 export interface ResumePermissions {
-  canEdit: boolean;
-  canDelete: boolean;
-  canViewSource: boolean;
-  canExportPdf: boolean;
-  canChangeVisibility: boolean;
-  isOwner: boolean;
-  isAdmin: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_view_source: boolean;
+  can_export_pdf: boolean;
+  can_change_visibility: boolean;
+  is_owner: boolean;
+  is_admin: boolean;
 }

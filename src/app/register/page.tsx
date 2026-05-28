@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -8,6 +8,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
 
 export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState(() => searchParams.get('email') ?? '');
