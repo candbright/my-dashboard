@@ -11,12 +11,29 @@ const TOKEN_KEY = 'auth_token';
 
 let _token: string | null = null;
 
-/** Initialize token from localStorage on load */
+/** Initialize token from localStorage on load and sync cookie ↔ localStorage */
 if (typeof window !== 'undefined') {
   _token = localStorage.getItem(TOKEN_KEY);
+  const hasCookie = document.cookie.split('; ').some((c) => c.startsWith(`${TOKEN_KEY}=`));
+  if (_token && !hasCookie) {
+    // localStorage has token but cookie is missing — sync cookie so Server
+    // Components (SSR) can access the auth token on next navigation.
+    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(_token)}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+  } else if (!_token && hasCookie) {
+    // localStorage was cleared but cookie still exists — clear the stale cookie.
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
+  }
 }
 
+/**
+ * Return the current auth token.
+ * Always re-reads from localStorage to avoid stale in-memory values
+ * (e.g. when storage is cleared externally via dev-tools or another tab).
+ */
 export function getToken(): string | null {
+  if (typeof window !== 'undefined') {
+    _token = localStorage.getItem(TOKEN_KEY);
+  }
   return _token;
 }
 
