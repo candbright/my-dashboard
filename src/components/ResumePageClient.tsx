@@ -15,13 +15,13 @@ import { apiFetch } from '@/lib/api-client';
 type ViewMode = 'view' | 'edit' | 'source';
 
 interface Permissions {
-  canEdit: boolean;
-  canDelete: boolean;
-  canViewSource: boolean;
-  canExportPdf: boolean;
-  canChangeVisibility: boolean;
-  isOwner: boolean;
-  isAdmin: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_view_source: boolean;
+  can_export_pdf: boolean;
+  can_change_visibility: boolean;
+  is_owner: boolean;
+  is_admin: boolean;
 }
 
 interface ResumePageClientProps {
@@ -36,13 +36,13 @@ export function ResumePageClient({
   parsed: initialParsed,
   markdown: initialMarkdown,
   permissions = {
-    canEdit: false,
-    canDelete: false,
-    canViewSource: false,
-    canExportPdf: true,
-    canChangeVisibility: false,
-    isOwner: false,
-    isAdmin: false,
+    can_edit: false,
+    can_delete: false,
+    can_view_source: false,
+    can_export_pdf: true,
+    can_change_visibility: false,
+    is_owner: false,
+    is_admin: false,
   },
 }: ResumePageClientProps) {
   const [mode, setMode] = useState<ViewMode>('view');
@@ -115,13 +115,13 @@ export function ResumePageClient({
             <ArrowLeft className="w-4 h-4" />
           </Link>
 
-          {permissions.canExportPdf && (
+          {permissions.can_export_pdf && (
             <button onClick={handleExportPdf} disabled={exporting} className={btnClass} title="导出 PDF">
               {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
             </button>
           )}
 
-          {permissions.canChangeVisibility && (
+          {permissions.can_change_visibility && (
             <button onClick={handleToggleVisibility} disabled={changingVisibility} className={btnClass}
               title={resume.visibility === 'public' ? '设为私人' : '申请公开'}>
               {changingVisibility ? <Loader2 className="w-4 h-4 animate-spin" /> :
@@ -129,13 +129,13 @@ export function ResumePageClient({
             </button>
           )}
 
-          {permissions.canEdit && (
+          {permissions.can_edit && (
             <button onClick={() => setMode('edit')} className={btnClass} title="编辑">
               <Pencil className="w-4 h-4" />
             </button>
           )}
 
-          {permissions.canViewSource && (
+          {permissions.can_view_source && (
             <button onClick={() => setMode('source')} className={btnClass} title="源码">
               <Code2 className="w-4 h-4" />
             </button>
