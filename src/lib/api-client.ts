@@ -25,8 +25,11 @@ export function setToken(token: string | null) {
   if (typeof window !== 'undefined') {
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
+      // Sync to cookie so Server Components can read the token
+      document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
     } else {
       localStorage.removeItem(TOKEN_KEY);
+      document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
     }
   }
 }
