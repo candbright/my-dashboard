@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Pencil, Code2, FileDown, Loader2, Globe, Lock, ArrowLeft } from 'lucide-react';
 import { ResumeDisplay } from './ResumeDisplay';
@@ -10,7 +10,7 @@ import { usePdfExport } from '@/hooks/usePdfExport';
 import Link from 'next/link';
 import type { ResumeRecord } from '@/lib/types';
 import type { ParsedResume } from '@/lib/resume-parser';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, getToken } from '@/lib/api-client';
 
 type ViewMode = 'view' | 'edit' | 'source';
 
@@ -31,26 +31,46 @@ interface ResumePageClientProps {
   permissions?: Permissions;
 }
 
+const defaultPermissions: Permissions = {
+  can_edit: false,
+  can_delete: false,
+  can_view_source: false,
+  can_export_pdf: true,
+  can_change_visibility: false,
+  is_owner: false,
+  is_admin: false,
+};
+
 export function ResumePageClient({
   resume: initialResume,
   parsed: initialParsed,
   markdown: initialMarkdown,
-  permissions = {
-    can_edit: false,
-    can_delete: false,
-    can_view_source: false,
-    can_export_pdf: true,
-    can_change_visibility: false,
-    is_owner: false,
-    is_admin: false,
-  },
+  permissions: serverPermissions,
 }: ResumePageClientProps) {
   const [mode, setMode] = useState<ViewMode>('view');
   const [resume, setResume] = useState(initialResume);
   const [parsed, setParsed] = useState(initialParsed);
   const [markdown, setMarkdown] = useState(initialMarkdown);
+  const [permissions, setPermissions] = useState<Permissions>(serverPermissions ?? defaultPermissions);
   const [changingVisibility, setChangingVisibility] = useState(false);
   const { exportPdf, exporting } = usePdfExport();
+
+  // Re-fetch permissions on client side using the localStorage token.
+  // This ensures action buttons appear even when the Server Component's
+  // cookie-based auth failed to relay the token.
+  useEffect(() => {
+    if (!getToken()) return;
+    // Skip if server already provided elevated permissions (owner/admin actions)
+    if (serverPermissions && (serverPermissions.can_edit || serverPermissions.can_change_visibility)) return;
+    apiFetch(`/api/resumes/${initialResume.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.permissions) {
+          setPermissions(data.permissions);
+        }
+      })
+      .catch(() => {});
+  }, [initialResume.id, serverPermissions]);
 
   const handleSave = useCallback(async (newMarkdown: string) => {
     const res = await apiFetch(`/api/resumes/${resume.id}`, {
@@ -80,7 +100,10 @@ export function ResumePageClient({
 
   const handleToggleVisibility = useCallback(async () => {
     const newVisibility = resume.visibility === 'public' ? 'private' : 'public';
-    if (!confirm(newVisibility === 'public' ? '申请公开此简历？' : '设为私人？')) return;
+    const confirmMsg = newVisibility === 'public'
+      ? (permissions.is_admin ? '直接设为公开？' : '申请公开此简历？')
+      : '设为私人？';
+    if (!confirm(confirmMsg)) return;
 
     setChangingVisibility(true);
     try {
@@ -98,7 +121,7 @@ export function ResumePageClient({
     } finally {
       setChangingVisibility(false);
     }
-  }, [resume]);
+  }, [resume, permissions.is_admin]);
 
   const btnClass = "p-2 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors disabled:opacity-50";
 
@@ -123,7 +146,7 @@ export function ResumePageClient({
 
           {permissions.can_change_visibility && (
             <button onClick={handleToggleVisibility} disabled={changingVisibility} className={btnClass}
-              title={resume.visibility === 'public' ? '设为私人' : '申请公开'}>
+              title={resume.visibility === 'public' ? '设为私人' : (permissions.is_admin ? '设为公开' : '申请公开')}>
               {changingVisibility ? <Loader2 className="w-4 h-4 animate-spin" /> :
                 resume.visibility === 'public' ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
             </button>
