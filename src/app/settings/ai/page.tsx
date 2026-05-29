@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, ExternalLink, Zap, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, ExternalLink, Zap, CheckCircle2, XCircle, Trash2, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
-import { Button, Input, Select, Spinner, Divider, Card } from '@/components/ui';
+import { Button, Input, Select, Spinner, Divider, Card, Chip } from '@/components/ui';
 
 type AIProvider = 'deepseek' | 'openai' | 'qwen' | 'zhipu' | 'moonshot' | 'custom';
 
@@ -76,9 +76,14 @@ function initProviderStates(): Record<AIProvider, ProviderState> {
   return initial;
 }
 
-export default function AdminSettingsPage() {
-  const { isAdmin, loading: authLoading } = useAuth();
+export default function UserAISettingsPage() {
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [adminConfigured, setAdminConfigured] = useState(false);
+  const [adminProvider, setAdminProvider] = useState<string>('');
+  const [hasCustomConfig, setHasCustomConfig] = useState(false);
+
   const [activeProvider, setActiveProvider] = useState<AIProvider>('deepseek');
   const [selectedTab, setSelectedTab] = useState<AIProvider>('deepseek');
   const [providerStates, setProviderStates] = useState<Record<AIProvider, ProviderState>>(initProviderStates);
@@ -90,6 +95,7 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Test connection state
@@ -102,18 +108,37 @@ export default function AdminSettingsPage() {
   } | null>(null);
 
   useEffect(() => {
-    if (!authLoading && isAdmin) {
+    if (!authLoading && user) {
+      // Check AI config status
       apiFetch('/api/ai/config')
+        .then((res) => res.json())
+        .then((data) => {
+          setAiEnabled(data.ai_enabled || isAdmin);
+          setAdminConfigured(data.configured);
+        })
+        .catch(() => {});
+
+      // Load user's custom AI config
+      apiFetch('/api/user/ai-config')
         .then((res) => {
-          if (!res.ok) throw new Error('Unauthorized');
+          if (!res.ok) {
+            // AI not enabled for user
+            setLoading(false);
+            return null;
+          }
           return res.json();
         })
         .then((data) => {
-          if (data.activeProvider) {
-            setActiveProvider(data.activeProvider);
-            setSelectedTab(data.activeProvider);
-          }
-          if (data.providers) {
+          if (!data) return;
+          setAdminConfigured(data.adminConfigured ?? false);
+          setAdminProvider(data.adminProvider ?? '');
+          setHasCustomConfig(data.hasCustomConfig ?? false);
+
+          if (data.hasCustomConfig && data.providers) {
+            if (data.activeProvider) {
+              setActiveProvider(data.activeProvider);
+              setSelectedTab(data.activeProvider);
+            }
             setProviderStates((prev) => {
               const states = { ...prev };
               for (const id of PROVIDER_ORDER) {
@@ -131,10 +156,10 @@ export default function AdminSettingsPage() {
             }
           }
         })
-        .catch(() => setError('加载配置失败'))
+        .catch(() => {})
         .finally(() => setLoading(false));
     }
-  }, [authLoading, isAdmin]);
+  }, [authLoading, user, isAdmin]);
 
   const handleSelectTab = (id: AIProvider) => {
     setSelectedTab(id);
@@ -159,11 +184,12 @@ export default function AdminSettingsPage() {
     try {
       const res = await apiFetch('/api/ai/test', {
         method: 'POST',
-        body: JSON.stringify(
-          apiKey.trim()
-            ? { provider: selectedTab, apiKey: apiKey.trim(), model: resolvedModel, baseUrl }
-            : {}
-        ),
+        body: JSON.stringify({
+          provider: selectedTab,
+          apiKey: apiKey.trim(),
+          model: resolvedModel,
+          baseUrl,
+        }),
       });
 
       const data = await res.json();
@@ -197,13 +223,14 @@ export default function AdminSettingsPage() {
     setSaved(false);
 
     try {
-      const res = await apiFetch('/api/ai/config', {
+      const res = await apiFetch('/api/user/ai-config', {
         method: 'POST',
         body: JSON.stringify({
           provider: selectedTab,
           apiKey: apiKey.trim(),
           model: resolvedModel,
           baseUrl,
+          setActive: true,
         }),
       });
 
@@ -219,6 +246,8 @@ export default function AdminSettingsPage() {
           baseUrl,
         },
       }));
+      setActiveProvider(data.activeProvider || selectedTab);
+      setHasCustomConfig(true);
       setApiKey('');
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -239,7 +268,7 @@ export default function AdminSettingsPage() {
     setError(null);
 
     try {
-      const res = await apiFetch('/api/ai/config', {
+      const res = await apiFetch('/api/user/ai-config', {
         method: 'PATCH',
         body: JSON.stringify({ activeProvider: selectedTab }),
       });
@@ -253,6 +282,29 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handleDeleteConfig = async () => {
+    if (!confirm('确定要删除自定义 AI 配置吗？删除后将使用管理员全局配置。')) return;
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const res = await apiFetch('/api/user/ai-config', { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '删除失败');
+      }
+      setHasCustomConfig(false);
+      setProviderStates(initProviderStates());
+      setActiveProvider('deepseek');
+      setSelectedTab('deepseek');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '删除失败');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -261,7 +313,29 @@ export default function AdminSettingsPage() {
     );
   }
 
-  if (!isAdmin) return null;
+  // AI not enabled for this user
+  if (!aiEnabled && !isAdmin) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
+      >
+        <h1 className="text-2xl font-bold tracking-tight mb-6">AI-API 设置</h1>
+        <Divider className="mb-6" />
+        <Card variant="bordered" className="p-6">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-default-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm text-default-600">
+                AI 功能未启用。请联系管理员开启您的 AI 使用权限。
+              </p>
+            </div>
+          </div>
+        </Card>
+      </motion.div>
+    );
+  }
 
   const currentPreset = AI_PROVIDERS[selectedTab];
   const currentState = providerStates[selectedTab];
@@ -273,9 +347,33 @@ export default function AdminSettingsPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
     >
-      <h1 className="text-2xl font-bold tracking-tight mb-6">AI 全局配置</h1>
+      <h1 className="text-2xl font-bold tracking-tight mb-2">AI-API 设置</h1>
+      <p className="text-sm text-default-500 mb-6">
+        自定义 AI 配置以覆盖管理员全局配置。不配置则使用管理员提供的 AI 服务。
+      </p>
 
       <Divider className="mb-6" />
+
+      {/* Admin config status */}
+      <div className="mb-6 flex items-center gap-2 flex-wrap">
+        <Chip
+          variant="flat"
+          color={adminConfigured ? 'success' : 'default'}
+          size="sm"
+        >
+          管理员配置: {adminConfigured ? '已配置' : '未配置'}
+        </Chip>
+        {adminProvider && (
+          <Chip variant="flat" size="sm" color="primary">
+            管理员当前: {AI_PROVIDERS[adminProvider as AIProvider]?.name || adminProvider}
+          </Chip>
+        )}
+        {hasCustomConfig && (
+          <Chip variant="flat" size="sm" color="secondary">
+            已自定义配置
+          </Chip>
+        )}
+      </div>
 
       {/* Provider Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -283,7 +381,7 @@ export default function AdminSettingsPage() {
           const preset = AI_PROVIDERS[id];
           const state = providerStates[id];
           const selected = id === selectedTab;
-          const active = id === activeProvider;
+          const active = id === activeProvider && hasCustomConfig;
           return (
             <button
               key={id}
@@ -310,7 +408,7 @@ export default function AdminSettingsPage() {
       <div className="max-w-md space-y-4">
         {/* Status */}
         <div className="flex items-center gap-2 text-sm flex-wrap">
-          {isActive && (
+          {isActive && hasCustomConfig && (
             <span className="inline-flex items-center gap-1 text-success font-medium">
               <Check className="w-3.5 h-3.5" /> 当前使用
             </span>
@@ -421,7 +519,7 @@ export default function AdminSettingsPage() {
             {saved ? '已保存' : '保存'}
           </Button>
 
-          {(apiKey.trim() || currentState.configured) && (
+          {apiKey.trim() && (
             <Button
               variant="bordered"
               onClick={handleTest}
@@ -432,7 +530,7 @@ export default function AdminSettingsPage() {
             </Button>
           )}
 
-          {!isActive && currentState.configured && (
+          {!isActive && currentState.configured && hasCustomConfig && (
             <Button
               variant="bordered"
               onClick={handleSetActive}
@@ -442,6 +540,22 @@ export default function AdminSettingsPage() {
             </Button>
           )}
         </div>
+
+        {/* Delete custom config */}
+        {hasCustomConfig && (
+          <div className="pt-4 border-t border-default-200">
+            <Button
+              variant="light"
+              color="danger"
+              size="sm"
+              onClick={handleDeleteConfig}
+              isLoading={deleting}
+              startContent={<Trash2 className="w-4 h-4" />}
+            >
+              删除自定义配置（恢复使用管理员配置）
+            </Button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

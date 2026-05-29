@@ -38,6 +38,7 @@ export interface SafeUser {
   email: string;
   role: UserRole;
   avatar: string | null;
+  ai_enabled: boolean;
   created_at: string;
 }
 

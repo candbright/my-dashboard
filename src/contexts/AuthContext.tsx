@@ -9,6 +9,7 @@ export interface AuthUser {
   email: string;
   role: 'admin' | 'user';
   avatar: string | null;
+  ai_enabled: boolean;
   created_at: string;
 }
 

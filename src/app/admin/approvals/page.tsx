@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-client';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { Button, Card, Spinner, EmptyState, Textarea } from '@/components/ui';
 
 interface PendingResume {
   id: string;
@@ -23,7 +22,6 @@ interface PendingResume {
 
 export default function ApprovalsPage() {
   const { isAdmin, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [resumes, setResumes] = useState<PendingResume[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -31,11 +29,6 @@ export default function ApprovalsPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !isAdmin) {
-      router.replace('/');
-      return;
-    }
-
     if (!authLoading && isAdmin) {
       apiFetch('/api/admin/approvals')
         .then((r) => r.json())
@@ -43,7 +36,7 @@ export default function ApprovalsPage() {
         .catch(() => {})
         .finally(() => setLoadingResumes(false));
     }
-  }, [authLoading, isAdmin, router]);
+  }, [authLoading, isAdmin]);
 
   const handleApprove = async (id: string) => {
     setProcessing(id);
@@ -84,7 +77,7 @@ export default function ApprovalsPage() {
   if (authLoading || loadingResumes) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--muted-foreground)]" />
+        <Spinner size="md" />
       </div>
     );
   }
@@ -98,11 +91,11 @@ export default function ApprovalsPage() {
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
     >
       <h1 className="text-2xl font-bold tracking-tight mb-1">审核管理</h1>
-      <p className="text-sm text-[var(--muted-foreground)] mb-8">{resumes.length} 条待审核</p>
+      <p className="text-sm text-default-500 mb-8">{resumes.length} 条待审核</p>
 
       <AnimatePresence mode="popLayout">
         {resumes.length === 0 ? (
-          <p className="text-center py-16 text-sm text-[var(--muted-foreground)]">没有待审核的申请</p>
+          <EmptyState title="暂无待审核申请" description="所有简历都已处理完毕" />
         ) : (
           <div className="space-y-3">
             {resumes.map((resume) => (
@@ -112,69 +105,76 @@ export default function ApprovalsPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, x: -20 }}
-                className="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/resume/${resume.slug}`}
-                      className="font-medium text-sm hover:text-[var(--accent)] transition-colors"
-                    >
-                      {resume.title}
-                    </Link>
-                    {resume.job_title && (
-                      <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{resume.job_title}</p>
-                    )}
-                    <p className="text-xs text-[var(--muted-foreground)] mt-1">
-                      {formatDistanceToNow(new Date(resume.updated_at), { addSuffix: true, locale: zhCN })}
-                    </p>
-                  </div>
+                <Card variant="bordered" className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={`/resume/${resume.slug}`}
+                        className="font-medium text-sm hover:text-primary transition-colors"
+                      >
+                        {resume.title}
+                      </Link>
+                      {resume.job_title && (
+                        <p className="text-xs text-default-500 mt-0.5">{resume.job_title}</p>
+                      )}
+                      <p className="text-xs text-default-400 mt-1">
+                        {formatDistanceToNow(new Date(resume.updated_at), { addSuffix: true, locale: zhCN })}
+                      </p>
+                    </div>
 
-                  {rejectingId === resume.id ? (
-                    <div className="flex flex-col gap-2 min-w-[180px]">
-                      <textarea
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="拒绝原因（可选）"
-                        rows={2}
-                        className="px-2 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] text-xs
-                          focus:outline-none focus:ring-1 focus:ring-red-400 resize-none"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setRejectingId(null); setRejectReason(''); }}
-                          className="flex-1 px-2 py-1 rounded text-xs border border-[var(--border)] hover:bg-[var(--muted)]"
-                        >
-                          取消
-                        </button>
-                        <button
-                          onClick={() => handleReject(resume.id)}
-                          disabled={processing === resume.id}
-                          className="flex-1 px-2 py-1 rounded text-xs bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
-                        >
-                          确认拒绝
-                        </button>
+                    {rejectingId === resume.id ? (
+                      <div className="flex flex-col gap-2 min-w-[180px]">
+                        <Textarea
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          placeholder="拒绝原因（可选）"
+                          rows={2}
+                          variant="bordered"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            variant="bordered"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => { setRejectingId(null); setRejectReason(''); }}
+                          >
+                            取消
+                          </Button>
+                          <Button
+                            color="danger"
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleReject(resume.id)}
+                            isLoading={processing === resume.id}
+                          >
+                            确认拒绝
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        onClick={() => handleApprove(resume.id)}
-                        disabled={processing === resume.id}
-                        className="px-3 py-1.5 rounded text-xs font-medium bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
-                      >
-                        {processing === resume.id ? '...' : '批准'}
-                      </button>
-                      <button
-                        onClick={() => setRejectingId(resume.id)}
-                        disabled={processing === resume.id}
-                        className="px-3 py-1.5 rounded text-xs font-medium text-red-500 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
-                      >
-                        拒绝
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          color="success"
+                          size="sm"
+                          onClick={() => handleApprove(resume.id)}
+                          isLoading={processing === resume.id}
+                        >
+                          批准
+                        </Button>
+                        <Button
+                          color="danger"
+                          variant="bordered"
+                          size="sm"
+                          onClick={() => setRejectingId(resume.id)}
+                          isDisabled={processing === resume.id}
+                        >
+                          拒绝
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </Card>
               </motion.div>
             ))}
           </div>

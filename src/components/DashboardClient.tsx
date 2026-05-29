@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { ResumeCard } from './ResumeCard';
-import { StaggerContainer, StaggerItem } from './ui/Animations';
-import { Search, Loader2 } from 'lucide-react';
+import { StaggerContainer, StaggerItem, Spinner, EmptyState, Input } from './ui';
+import { PageContainer } from './layout/PageContainer';
+import { Search, FileText } from 'lucide-react';
 import type { ResumeRecord } from '@/lib/types';
 import { apiFetch } from '@/lib/api-client';
 
@@ -32,47 +33,32 @@ export function DashboardClient() {
     );
   });
 
-  const isLoading = loadingResumes;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
-      className="max-w-5xl mx-auto px-6 py-12"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">
-          公共<span className="gradient-text">简历</span>
-        </h1>
-      </div>
-
+    <PageContainer title="公共" titleAccent="简历">
       {/* Search */}
-      <div className="relative mb-8 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-        <input
-          type="text"
-          placeholder="搜索..."
+      <div className="mb-8 max-w-sm">
+        <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-            focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-            placeholder:text-[var(--muted-foreground)]"
+          placeholder="搜索简历..."
+          variant="flat"
+          startContent={<Search className="w-4 h-4" />}
         />
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      {loadingResumes ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-[var(--muted-foreground)]" />
+          <Spinner size="lg" label="加载中..." />
         </div>
       ) : (
         <AnimatePresence mode="wait">
           {filteredResumes.length === 0 ? (
-            <p className="text-center py-20 text-[var(--muted-foreground)] text-sm">
-              {searchQuery ? '没有匹配的简历' : '暂无公共简历'}
-            </p>
+            <EmptyState
+              icon={<FileText className="w-7 h-7 text-default-400" />}
+              title={searchQuery ? '没有匹配的简历' : '暂无公共简历'}
+              description={searchQuery ? '试试其他关键词' : '还没有人发布公开简历'}
+            />
           ) : (
             <StaggerContainer
               key="grid"
@@ -97,6 +83,6 @@ export function DashboardClient() {
           )}
         </AnimatePresence>
       )}
-    </motion.div>
+    </PageContainer>
   );
 }

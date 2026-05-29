@@ -2,9 +2,11 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Trash2, Globe, Lock, Clock, XCircle } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { Chip, Card, CardBody, Button } from '@/components/ui';
+import type { ChipProps } from '@/components/ui/Chip';
 
 interface ResumeCardProps {
   id: string;
@@ -21,14 +23,22 @@ interface ResumeCardProps {
   onDelete?: (id: string) => void;
 }
 
-function statusLabel(visibility?: string, approvalStatus?: string) {
+function statusLabel(
+  visibility?: string,
+  approvalStatus?: string
+): { text: string; color: ChipProps['color']; variant: ChipProps['variant'] } | null {
   if (!visibility) return null;
-  if (visibility === 'private') return { text: '私人', cls: 'text-gray-500' };
+  if (visibility === 'private')
+    return { text: '私人', color: 'default', variant: 'dot' };
   switch (approvalStatus) {
-    case 'pending': return { text: '审核中', cls: 'text-amber-500' };
-    case 'approved': return { text: '公开', cls: 'text-green-500' };
-    case 'rejected': return { text: '已拒绝', cls: 'text-red-500' };
-    default: return { text: '草稿', cls: 'text-gray-500' };
+    case 'pending':
+      return { text: '审核中', color: 'warning', variant: 'dot' };
+    case 'approved':
+      return { text: '公开', color: 'success', variant: 'dot' };
+    case 'rejected':
+      return { text: '已拒绝', color: 'danger', variant: 'dot' };
+    default:
+      return { text: '草稿', color: 'default', variant: 'dot' };
   }
 }
 
@@ -45,7 +55,8 @@ export function ResumeCard({
   isAdmin,
   onDelete,
 }: ResumeCardProps) {
-  const status = (isOwner || isAdmin) ? statusLabel(visibility, approvalStatus) : null;
+  const status =
+    isOwner || isAdmin ? statusLabel(visibility, approvalStatus) : null;
 
   return (
     <motion.div
@@ -55,37 +66,54 @@ export function ResumeCard({
       exit={{ opacity: 0 }}
       whileHover={{ y: -3 }}
       transition={{ duration: 0.25 }}
-      className="group bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--accent)] hover:shadow-md transition-all duration-200"
     >
-      <div className="flex items-start justify-between mb-2">
-        <Link href={`/resume/${slug}`} className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold tracking-tight line-clamp-1 hover:text-[var(--accent)] transition-colors">
-            {title}
-          </h3>
-        </Link>
-        {onDelete && (
-          <button
-            onClick={() => onDelete(id)}
-            className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all ml-2"
-            title="删除"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-red-500" />
-          </button>
-        )}
-      </div>
+      <Card isHoverable className="h-full">
+        <CardBody className="p-5">
+          <div className="flex items-start justify-between mb-2">
+            <Link href={`/resume/${slug}`} className="flex-1 min-w-0">
+              <h3 className="text-base font-semibold tracking-tight line-clamp-1 text-foreground hover:text-primary transition-colors">
+                {title}
+              </h3>
+            </Link>
+            {onDelete && (
+              <Button
+                variant="light"
+                color="danger"
+                isIconOnly
+                size="sm"
+                className="opacity-0 group-hover:opacity-100 ml-2"
+                onClick={() => onDelete(id)}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
 
-      {jobTitle && (
-        <p className="text-sm text-[var(--muted-foreground)] mb-1">{jobTitle}</p>
-      )}
+          {jobTitle && (
+            <p className="text-sm text-default-500 mb-1">{jobTitle}</p>
+          )}
 
-      {summary && (
-        <p className="text-xs text-[var(--muted-foreground)] line-clamp-2 mb-3">{summary}</p>
-      )}
+          {summary && (
+            <p className="text-xs text-default-400 line-clamp-2 mb-3">
+              {summary}
+            </p>
+          )}
 
-      <div className="flex items-center justify-between text-xs text-[var(--muted-foreground)]">
-        <span>{formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: zhCN })}</span>
-        {status && <span className={status.cls}>{status.text}</span>}
-      </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-default-400">
+              {formatDistanceToNow(new Date(createdAt), {
+                addSuffix: true,
+                locale: zhCN,
+              })}
+            </span>
+            {status && (
+              <Chip color={status.color} variant={status.variant} size="sm">
+                {status.text}
+              </Chip>
+            )}
+          </div>
+        </CardBody>
+      </Card>
     </motion.div>
   );
 }

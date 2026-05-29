@@ -3,9 +3,11 @@
 import { useState, useEffect, FormEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
+import { useCountdown } from '@/hooks/useCountdown';
+import { Button, Input, Card, CardBody } from '@/components/ui';
+import { Send } from 'lucide-react';
 
 export default function RegisterPage() {
   return (
@@ -24,13 +26,12 @@ function RegisterForm() {
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, startCooldown] = useCountdown(60);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { register, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Keep state in sync if params change (e.g. browser back/forward)
   useEffect(() => {
     const p = searchParams.get('email');
     if (p) setEmail(p);
@@ -48,16 +49,6 @@ function RegisterForm() {
   };
 
   if (isAuthenticated) return null;
-
-  const startCooldown = () => {
-    setCooldown(60);
-    const timer = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) { clearInterval(timer); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
-  };
 
   const handleSendCode = async () => {
     if (!email.trim()) {
@@ -107,111 +98,122 @@ function RegisterForm() {
     }
   };
 
-  const inputClass = `w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-    focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-    placeholder:text-[var(--muted-foreground)]`;
-
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
         className="w-full max-w-sm"
       >
-        <h1 className="text-xl font-bold tracking-tight mb-6">注册</h1>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <p className="text-sm text-red-500">{error}</p>}
-
-          {/* Username — optional */}
-          <div>
-            <input
-              type="text"
-              minLength={2}
-              maxLength={50}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className={inputClass}
-              placeholder="用户名（选填，不填则自动生成）"
-              autoFocus
-            />
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-xl font-bold">R</span>
           </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">创建账号</h1>
+          <p className="text-sm text-default-500 mt-1">注册一个新的 ResumeVault 账号</p>
+        </div>
 
-          {/* Email + send code */}
-          <div className="flex gap-2">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => { setEmail(e.target.value); setCodeSent(false); }}
-              className={`flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-                focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-                placeholder:text-[var(--muted-foreground)]`}
-              placeholder="邮箱"
-            />
-            <button
-              type="button"
-              onClick={handleSendCode}
-              disabled={sendingCode || cooldown > 0 || !email.trim()}
-              className="shrink-0 px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium
-                hover:bg-[var(--muted)] transition-colors disabled:opacity-50 whitespace-nowrap"
-            >
-              {sendingCode
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : cooldown > 0 ? `${cooldown}s`
-                : codeSent ? '重新发送'
-                : '发送验证码'}
-            </button>
-          </div>
+        <Card variant="bordered">
+          <CardBody className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="text-sm text-danger bg-danger/10 rounded-xl px-4 py-2.5">
+                  {error}
+                </div>
+              )}
 
-          {/* Verification code */}
-          <input
-            type="text"
-            required
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            className={inputClass}
-            placeholder="邮箱验证码（6位）"
-          />
+              <Input
+                type="text"
+                minLength={2}
+                maxLength={50}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="选填，不填则自动生成"
+                label="用户名"
+                autoFocus
+              />
 
-          {/* Password */}
-          <input
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-            placeholder="密码（至少6位）"
-          />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">邮箱</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setCodeSent(false);
+                    }}
+                    placeholder="邮箱地址"
+                  />
+                  <Button
+                    type="button"
+                    variant="bordered"
+                    size="md"
+                    onClick={handleSendCode}
+                    disabled={sendingCode || cooldown > 0 || !email.trim()}
+                    isLoading={sendingCode}
+                    className="shrink-0 whitespace-nowrap"
+                    startContent={!sendingCode && cooldown === 0 ? <Send className="w-3.5 h-3.5" /> : undefined}
+                  >
+                    {cooldown > 0
+                      ? `${cooldown}s`
+                      : codeSent
+                      ? '重新发送'
+                      : '发送'}
+                  </Button>
+                </div>
+              </div>
 
-          <input
-            type="password"
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className={inputClass}
-            placeholder="确认密码"
-          />
+              <Input
+                type="text"
+                required
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="6位验证码"
+                label="验证码"
+              />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 rounded-lg bg-[var(--foreground)] text-[var(--background)] text-sm font-medium
-              hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : '注册'}
-          </button>
-        </form>
+              <Input
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="至少6位"
+                label="密码"
+              />
 
-        <p className="text-center text-sm text-[var(--muted-foreground)] mt-4">
+              <Input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="再次输入密码"
+                label="确认密码"
+              />
+
+              <Button
+                type="submit"
+                color="primary"
+                variant="solid"
+                fullWidth
+                isLoading={loading}
+              >
+                注册
+              </Button>
+            </form>
+          </CardBody>
+        </Card>
+
+        <p className="text-center text-sm text-default-500 mt-5">
           已有账号？{' '}
           <button
             type="button"
             onClick={goToLogin}
-            className="text-[var(--accent)] hover:underline"
+            className="text-primary font-medium hover:underline"
           >
             登录
           </button>

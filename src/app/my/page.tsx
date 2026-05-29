@@ -1,38 +1,38 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { ResumeCard } from '@/components/ResumeCard';
-import { StaggerContainer, StaggerItem } from '@/components/ui/Animations';
-import { Search, Loader2, Plus } from 'lucide-react';
+import { StaggerContainer, StaggerItem, Spinner, EmptyState, Input, Button } from '@/components/ui';
+import { PageContainer, AuthGuard } from '@/components/layout';
+import { Search, Plus, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-client';
 import type { ResumeRecord } from '@/lib/types';
 
 export default function MyResumesPage() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
-  const router = useRouter();
+  return (
+    <AuthGuard>
+      <MyResumesContent />
+    </AuthGuard>
+  );
+}
+
+function MyResumesContent() {
+  const { user } = useAuth();
   const [resumes, setResumes] = useState<ResumeRecord[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-      return;
-    }
-
-    if (!authLoading && isAuthenticated) {
-      setLoadingResumes(true);
-      apiFetch('/api/resumes?scope=mine')
-        .then((res) => res.json())
-        .then((data) => setResumes(data.resumes || []))
-        .catch(() => setResumes([]))
-        .finally(() => setLoadingResumes(false));
-    }
-  }, [authLoading, isAuthenticated, router, user]);
+    setLoadingResumes(true);
+    apiFetch('/api/resumes?scope=mine')
+      .then((res) => res.json())
+      .then((data) => setResumes(data.resumes || []))
+      .catch(() => setResumes([]))
+      .finally(() => setLoadingResumes(false));
+  }, []);
 
   const filteredResumes = resumes.filter((r) => {
     const q = searchQuery.toLowerCase();
@@ -46,7 +46,6 @@ export default function MyResumesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除这份简历吗？')) return;
-
     try {
       const res = await apiFetch(`/api/resumes/${id}`, { method: 'DELETE' });
       if (res.ok) {
@@ -57,56 +56,46 @@ export default function MyResumesPage() {
     }
   };
 
-  const isLoading = authLoading || loadingResumes;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
-      className="max-w-5xl mx-auto px-6 py-12"
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">
-          我的<span className="gradient-text">简历</span>
-        </h1>
-        <Link
-          href="/upload"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
-            bg-[var(--foreground)] text-[var(--background)] text-sm font-medium
-            hover:opacity-90 transition-opacity"
-        >
-          <Plus className="w-4 h-4" />
-          上传
+    <PageContainer
+      title="我的"
+      titleAccent="简历"
+      action={
+        <Link href="/upload">
+          <Button
+            color="primary"
+            variant="solid"
+            startContent={<Plus className="w-4 h-4" />}
+          >
+            创建
+          </Button>
         </Link>
-      </div>
-
+      }
+    >
       {/* Search */}
-      <div className="relative mb-8 max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--muted-foreground)]" />
-        <input
-          type="text"
-          placeholder="搜索..."
+      <div className="mb-5 max-w-sm">
+        <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-            focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-            placeholder:text-[var(--muted-foreground)]"
+          placeholder="搜索简历..."
+          variant="flat"
+          startContent={<Search className="w-4 h-4" />}
         />
       </div>
 
       {/* Content */}
-      {isLoading ? (
+      {loadingResumes ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-[var(--muted-foreground)]" />
+          <Spinner size="lg" label="加载中..." />
         </div>
       ) : (
         <AnimatePresence mode="wait">
           {filteredResumes.length === 0 ? (
-            <p className="text-center py-20 text-[var(--muted-foreground)] text-sm">
-              {searchQuery ? '没有匹配的简历' : '还没有简历，点击上传开始'}
-            </p>
+            <EmptyState
+              icon={<FileText className="w-7 h-7 text-default-400" />}
+              title={searchQuery ? '没有匹配的简历' : '还没有简历'}
+              description={searchQuery ? '试试其他关键词' : '点击顶部创建按钮开始创建你的简历'}
+            />
           ) : (
             <StaggerContainer
               key="grid"
@@ -134,6 +123,6 @@ export default function MyResumesPage() {
           )}
         </AnimatePresence>
       )}
-    </motion.div>
+    </PageContainer>
   );
 }

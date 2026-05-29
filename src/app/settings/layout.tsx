@@ -6,16 +6,15 @@ import { motion } from 'framer-motion';
 import { AuthGuard } from '@/components/layout';
 
 const sidebarItems = [
-  { href: '/admin/approvals', label: '审核管理' },
-  { href: '/admin/users', label: '用户管理' },
-  { href: '/admin/settings', label: 'AI 全局配置' },
+  { href: '/settings', label: '账号设置' },
+  { href: '/settings/ai', label: 'AI-API 设置' },
 ];
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <AuthGuard requireAdmin>
+    <AuthGuard>
       <div className="max-w-5xl mx-auto px-6 py-10 flex gap-8">
         {/* Sidebar */}
         <motion.aside
@@ -24,10 +23,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           transition={{ duration: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
           className="w-44 shrink-0"
         >
-          <h2 className="text-sm font-semibold text-default-500 mb-3 px-3">管理后台</h2>
+          <h2 className="text-sm font-semibold text-default-500 mb-3 px-3">设置</h2>
           <nav className="space-y-0.5">
             {sidebarItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const isActive = item.href === '/settings'
+                ? pathname === '/settings'
+                : pathname === item.href || pathname.startsWith(item.href + '/');
               return (
                 <Link
                   key={item.href}

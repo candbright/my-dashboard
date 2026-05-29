@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileText, X, Check, Loader2 } from 'lucide-react';
+import { Upload, FileText, X, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-client';
+import { Button } from '@/components/ui';
 
 export function FileUpload() {
   const [isDragging, setIsDragging] = useState(false);
@@ -104,8 +105,8 @@ export function FileUpload() {
             onClick={() => fileInputRef.current?.click()}
             className={`relative cursor-pointer border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300
               ${isDragging
-                ? 'border-[var(--accent)] bg-[var(--accent-glow)] scale-[1.02]'
-                : 'border-[var(--border)] hover:border-[var(--accent)] hover:bg-[var(--accent-glow)]'
+                ? 'border-primary bg-primary/5 scale-[1.02]'
+                : 'border-default-300 hover:border-primary hover:bg-primary/5'
               }
             `}
           >
@@ -122,14 +123,14 @@ export function FileUpload() {
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
               className="flex flex-col items-center gap-4"
             >
-              <div className="w-16 h-16 rounded-2xl bg-[var(--muted)] flex items-center justify-center">
-                <Upload className="w-7 h-7 text-[var(--muted-foreground)]" />
+              <div className="w-16 h-16 rounded-2xl bg-default-100 flex items-center justify-center">
+                <Upload className="w-7 h-7 text-default-500" />
               </div>
               <div>
                 <p className="text-lg font-medium mb-1">
                   {isDragging ? '松开鼠标即可上传' : '将简历文件拖拽到这里'}
                 </p>
-                <p className="text-sm text-[var(--muted-foreground)]">
+                <p className="text-sm text-default-500">
                   或点击选择文件 — 支持 .md 格式
                 </p>
               </div>
@@ -141,24 +142,24 @@ export function FileUpload() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="border border-[var(--border)] rounded-2xl p-6"
+            className="border border-default-200 rounded-2xl p-6"
           >
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center">
-                <FileText className="w-6 h-6 text-[var(--accent)]" />
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{file.name}</p>
-                <p className="text-sm text-[var(--muted-foreground)]">
+                <p className="text-sm text-default-500">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
               </div>
               {!uploading && !uploaded && (
                 <button
                   onClick={removeFile}
-                  className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors"
+                  className="p-2 rounded-lg hover:bg-default-100 transition-colors"
                 >
-                  <X className="w-4 h-4 text-[var(--muted-foreground)]" />
+                  <X className="w-4 h-4 text-default-500" />
                 </button>
               )}
             </div>
@@ -169,35 +170,22 @@ export function FileUpload() {
                   key="success"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400"
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-success/10 text-success"
                 >
                   <Check className="w-5 h-5" />
                   <span className="font-medium">上传成功！</span>
                 </motion.div>
               ) : (
-                <motion.button
-                  key="button"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                <Button
+                  color="primary"
+                  className="w-full"
+                  size="lg"
+                  isLoading={uploading}
                   onClick={handleUpload}
-                  disabled={uploading}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white font-medium
-                    hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-shadow duration-300
-                    disabled:opacity-60 disabled:cursor-not-allowed
-                    flex items-center justify-center gap-2"
+                  startContent={!uploading ? <Upload className="w-4 h-4" /> : undefined}
                 >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      上传中...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      上传简历
-                    </>
-                  )}
-                </motion.button>
+                  {uploading ? '上传中...' : '上传简历'}
+                </Button>
               )}
             </AnimatePresence>
           </motion.div>
@@ -208,7 +196,7 @@ export function FileUpload() {
         <motion.p
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-4 text-sm text-red-500 text-center"
+          className="mt-4 text-sm text-danger text-center"
         >
           {error}
         </motion.p>

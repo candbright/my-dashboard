@@ -5,8 +5,8 @@ import { FileUpload } from '@/components/FileUpload';
 import { AIUpload } from '@/components/AIUpload';
 import { Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-type TabKey = 'standard' | 'ai';
+import { Tabs, Button, Card } from '@/components/ui';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 const TEMPLATE_EXAMPLE = `---
 name: 张三
@@ -52,7 +52,7 @@ avatar: https://i.pravatar.cc/200
 - 被500+开发者广泛使用`;
 
 export function UploadPageClient() {
-  const [activeTab, setActiveTab] = useState<TabKey>('standard');
+  const [activeTab, setActiveTab] = useState('standard');
   const [copied, setCopied] = useState(false);
 
   const handleCopyTemplate = async () => {
@@ -62,40 +62,19 @@ export function UploadPageClient() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
-      className="max-w-5xl mx-auto px-6 py-12"
-    >
-      <h1 className="text-2xl font-bold tracking-tight mb-8">上传简历</h1>
-
+    <PageContainer title="上传" titleAccent="简历">
       {/* Tab Switcher */}
-      <div className="flex gap-4 mb-8 text-sm border-b border-[var(--border)]">
-        {[
-          { key: 'standard' as TabKey, label: '标准上传' },
-          { key: 'ai' as TabKey, label: 'AI 解析' },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`relative pb-2 transition-colors ${
-              activeTab === tab.key
-                ? 'text-[var(--foreground)] font-medium'
-                : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.key && (
-              <motion.span
-                layoutId="upload-tab-underline"
-                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--foreground)] rounded-full"
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              />
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        variant="solid"
+        size="md"
+        items={[
+          { key: 'standard', label: '标准上传' },
+          { key: 'ai', label: 'AI 解析' },
+        ]}
+        selectedKey={activeTab}
+        onSelectionChange={setActiveTab}
+        className="mb-8"
+      />
 
       {/* Tab Content */}
       <AnimatePresence mode="wait">
@@ -116,39 +95,37 @@ export function UploadPageClient() {
               transition={{ delay: 0.2 }}
               className="mt-10"
             >
-              <div className="bg-[var(--card)] border border-[var(--border)] rounded-lg overflow-hidden">
+              <Card variant="bordered" className="overflow-hidden">
                 {/* Header bar */}
-                <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)] bg-[var(--muted)]/30">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-default-200 bg-content2/30">
                   <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
-                    <span className="ml-2 text-xs text-[var(--muted-foreground)]">模板格式参考</span>
+                    <div className="w-2.5 h-2.5 rounded-full bg-danger/60" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-warning/60" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-success/60" />
+                    <span className="ml-2 text-xs text-default-500">模板格式参考</span>
                   </div>
-                  <button
+                  <Button
+                    variant="light"
+                    size="sm"
                     onClick={handleCopyTemplate}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-[var(--muted-foreground)]
-                      hover:text-[var(--foreground)] hover:bg-[var(--muted)] transition-all"
-                    title="复制模板"
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-green-500" />
-                        <span className="text-green-500">已复制</span>
-                      </>
-                    ) : (
-                      <>
+                    startContent={
+                      copied ? (
+                        <Check className="w-3.5 h-3.5 text-success" />
+                      ) : (
                         <Copy className="w-3.5 h-3.5" />
-                        复制
-                      </>
-                    )}
-                  </button>
+                      )
+                    }
+                  >
+                    {copied ? '已复制' : '复制'}
+                  </Button>
                 </div>
                 {/* Code content */}
                 <div className="max-h-[600px] overflow-y-auto">
-                  <code className="block p-4 m-0 text-xs text-[var(--muted-foreground)] font-mono leading-relaxed whitespace-pre-wrap break-words">{TEMPLATE_EXAMPLE}</code>
+                  <code className="block p-4 m-0 text-xs text-default-500 font-mono leading-relaxed whitespace-pre-wrap break-words">
+                    {TEMPLATE_EXAMPLE}
+                  </code>
                 </div>
-              </div>
+              </Card>
             </motion.div>
           </motion.div>
         ) : (
@@ -163,6 +140,6 @@ export function UploadPageClient() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </PageContainer>
   );
 }

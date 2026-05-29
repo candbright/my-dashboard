@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Loader2, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
+import { Button, Input, Card, Divider } from '@/components/ui';
+import { useCountdown } from '@/hooks/useCountdown';
 
-export default function UserSettingsPage() {
-  const { user, isAuthenticated, loading: authLoading, refresh } = useAuth();
-  const router = useRouter();
+export default function SettingsAccountPage() {
+  const { user, refresh } = useAuth();
 
   // Username state
   const [username, setUsername] = useState('');
@@ -24,7 +24,7 @@ export default function UserSettingsPage() {
   const [emailSaved, setEmailSaved] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [sendingEmailCode, setSendingEmailCode] = useState(false);
-  const [emailCooldown, setEmailCooldown] = useState(0);
+  const [emailCooldown, startEmailCooldown] = useCountdown();
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -35,29 +35,10 @@ export default function UserSettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [authLoading, isAuthenticated, router]);
-
-  useEffect(() => {
     if (user) {
       setUsername(user.username);
     }
   }, [user]);
-
-  const startEmailCooldown = () => {
-    setEmailCooldown(60);
-    const timer = setInterval(() => {
-      setEmailCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
 
   const handleSendEmailCode = async () => {
     if (!newEmail.trim()) {
@@ -184,129 +165,126 @@ export default function UserSettingsPage() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--muted-foreground)]" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !user) return null;
-
-  const inputClass = `w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-    focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-    placeholder:text-[var(--muted-foreground)]`;
-
-  const btnPrimary = `py-2 px-4 rounded-lg bg-[var(--foreground)] text-[var(--background)] text-sm font-medium
-    hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2`;
+  if (!user) return null;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
-      className="max-w-lg mx-auto px-6 py-12"
     >
-      <h1 className="text-2xl font-bold tracking-tight mb-8">账号设置</h1>
-
+      <h1 className="text-2xl font-bold tracking-tight mb-6">账号设置</h1>
+      <Divider className="mb-6" />
       {/* ── Username ── */}
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold mb-3">用户名</h2>
-        <hr className="border-[var(--border)] mb-4" />
+      <Card variant="bordered" className="p-6 mb-6">
+        <h2 className="text-sm font-semibold mb-1">用户名</h2>
+        <Divider className="my-3" />
         <div className="space-y-3 max-w-sm">
-          <input
-            type="text"
+          <Input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className={inputClass}
             placeholder="用户名"
-            minLength={2}
-            maxLength={50}
+            variant="bordered"
+            errorMessage={usernameError ?? undefined}
           />
-          {usernameError && <p className="text-sm text-red-500">{usernameError}</p>}
-          <button onClick={handleSaveUsername} disabled={savingUsername || username === user.username} className={btnPrimary}>
-            {savingUsername ? <Loader2 className="w-4 h-4 animate-spin" /> : usernameSaved ? <><Check className="w-4 h-4" /> 已保存</> : '保存'}
-          </button>
+          <Button
+            color="primary"
+            onClick={handleSaveUsername}
+            isLoading={savingUsername}
+            isDisabled={username === user.username}
+            startContent={usernameSaved ? <Check className="w-4 h-4" /> : undefined}
+          >
+            {usernameSaved ? '已保存' : '保存'}
+          </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ── Email ── */}
-      <section className="mb-8">
-        <h2 className="text-sm font-semibold mb-3">绑定邮箱</h2>
-        <hr className="border-[var(--border)] mb-4" />
+      <Card variant="bordered" className="p-6 mb-6">
+        <h2 className="text-sm font-semibold mb-1">绑定邮箱</h2>
+        <Divider className="my-3" />
         <div className="space-y-3 max-w-sm">
-          <p className="text-sm text-[var(--muted-foreground)]">
-            当前邮箱：<span className="text-[var(--foreground)] font-medium">{user.email}</span>
+          <p className="text-sm text-default-500">
+            当前邮箱：<span className="text-foreground font-medium">{user.email}</span>
           </p>
-          <input
+          <Input
             type="email"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
-            className={inputClass}
             placeholder="新邮箱地址"
+            variant="bordered"
           />
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               maxLength={6}
               value={emailCode}
               onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ''))}
-              className={`flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-                focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-                placeholder:text-[var(--muted-foreground)]`}
               placeholder="6位验证码"
+              variant="bordered"
+              className="flex-1"
             />
-            <button
-              type="button"
+            <Button
+              variant="bordered"
               onClick={handleSendEmailCode}
-              disabled={sendingEmailCode || emailCooldown > 0 || !newEmail.trim()}
-              className="shrink-0 px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium
-                hover:bg-[var(--muted)] transition-colors disabled:opacity-50 whitespace-nowrap"
+              isLoading={sendingEmailCode}
+              isDisabled={emailCooldown > 0 || !newEmail.trim()}
+              className="shrink-0"
             >
-              {sendingEmailCode ? <Loader2 className="w-4 h-4 animate-spin" /> : emailCooldown > 0 ? `${emailCooldown}s` : '发送验证码'}
-            </button>
+              {emailCooldown > 0 ? `${emailCooldown}s` : '发送验证码'}
+            </Button>
           </div>
-          {emailError && <p className="text-sm text-red-500">{emailError}</p>}
-          <button onClick={handleSaveEmail} disabled={savingEmail || !newEmail.trim() || !emailCode.trim()} className={btnPrimary}>
-            {savingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : emailSaved ? <><Check className="w-4 h-4" /> 已更新</> : '更新邮箱'}
-          </button>
+          {emailError && <p className="text-sm text-danger">{emailError}</p>}
+          <Button
+            color="primary"
+            onClick={handleSaveEmail}
+            isLoading={savingEmail}
+            isDisabled={!newEmail.trim() || !emailCode.trim()}
+            startContent={emailSaved ? <Check className="w-4 h-4" /> : undefined}
+          >
+            {emailSaved ? '已更新' : '更新邮箱'}
+          </Button>
         </div>
-      </section>
+      </Card>
 
       {/* ── Password ── */}
-      <section>
-        <h2 className="text-sm font-semibold mb-3">修改密码</h2>
-        <hr className="border-[var(--border)] mb-4" />
+      <Card variant="bordered" className="p-6">
+        <h2 className="text-sm font-semibold mb-1">修改密码</h2>
+        <Divider className="my-3" />
         <div className="space-y-3 max-w-sm">
-          <input
+          <Input
             type="password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className={inputClass}
             placeholder="当前密码"
+            variant="bordered"
           />
-          <input
+          <Input
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className={inputClass}
             placeholder="新密码（至少6位）"
-            minLength={6}
+            variant="bordered"
           />
-          <input
+          <Input
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className={inputClass}
             placeholder="确认新密码"
+            variant="bordered"
           />
-          {passwordError && <p className="text-sm text-red-500">{passwordError}</p>}
-          <button onClick={handleSavePassword} disabled={savingPassword || !currentPassword || !newPassword} className={btnPrimary}>
-            {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : passwordSaved ? <><Check className="w-4 h-4" /> 已更新</> : '修改密码'}
-          </button>
+          {passwordError && <p className="text-sm text-danger">{passwordError}</p>}
+          <Button
+            color="primary"
+            onClick={handleSavePassword}
+            isLoading={savingPassword}
+            isDisabled={!currentPassword || !newPassword}
+            startContent={passwordSaved ? <Check className="w-4 h-4" /> : undefined}
+          >
+            {passwordSaved ? '已更新' : '修改密码'}
+          </Button>
         </div>
-      </section>
+      </Card>
     </motion.div>
   );
 }
