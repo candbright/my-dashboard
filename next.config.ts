@@ -34,7 +34,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.googleapis.com https://fonts.gstatic.com",
       `connect-src ${connectSrc}`,
       "frame-ancestors 'self'",
     ].join('; '),

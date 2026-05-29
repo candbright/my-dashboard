@@ -157,8 +157,8 @@
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
 
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", monospace;
 }
 
 /* ─────── Base ─────── */
@@ -170,7 +170,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* Scrollbar */
@@ -311,5 +311,5 @@ body {
   padding: 0.125rem 0.375rem;
   border-radius: 4px;
   font-size: 0.875rem;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-mono);
 }
