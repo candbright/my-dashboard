@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, Check, ExternalLink, Zap, CheckCircle2, XCircle } from 'lucide-react';
+import { Check, ExternalLink, Zap, CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
+import { Button, Input, Select, Spinner, Divider, Card } from '@/components/ui';
 
 type AIProvider = 'deepseek' | 'openai' | 'qwen' | 'zhipu' | 'moonshot' | 'custom';
 
@@ -158,7 +159,6 @@ export default function AdminSettingsPage() {
     try {
       const res = await apiFetch('/api/ai/test', {
         method: 'POST',
-        // If user has typed a new key, test that; otherwise test saved config
         body: JSON.stringify(
           apiKey.trim()
             ? { provider: selectedTab, apiKey: apiKey.trim(), model: resolvedModel, baseUrl }
@@ -256,7 +256,7 @@ export default function AdminSettingsPage() {
   if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--muted-foreground)]" />
+        <Spinner size="md" />
       </div>
     );
   }
@@ -273,9 +273,9 @@ export default function AdminSettingsPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
     >
-      <h1 className="text-2xl font-bold tracking-tight mb-6">AI 设置</h1>
+      <h1 className="text-2xl font-bold tracking-tight mb-6">AI 全局配置</h1>
 
-      <hr className="border-[var(--border)] mb-6" />
+      <Divider className="mb-6" />
 
       {/* Provider Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -290,16 +290,16 @@ export default function AdminSettingsPage() {
               onClick={() => handleSelectTab(id)}
               className={`relative px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
                 ${selected
-                  ? 'bg-[var(--foreground)] text-[var(--background)]'
-                  : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+                  ? 'bg-primary text-white'
+                  : 'bg-default-100 text-default-500 hover:text-foreground'
                 }`}
             >
               {preset.name}
               {active && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-green-500" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-success" />
               )}
               {state.configured && !active && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-[var(--accent)]" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primary" />
               )}
             </button>
           );
@@ -311,39 +311,37 @@ export default function AdminSettingsPage() {
         {/* Status */}
         <div className="flex items-center gap-2 text-sm flex-wrap">
           {isActive && (
-            <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium">
+            <span className="inline-flex items-center gap-1 text-success font-medium">
               <Check className="w-3.5 h-3.5" /> 当前使用
             </span>
           )}
           {currentState.configured && (
-            <span className="text-[var(--muted-foreground)]">
+            <span className="text-default-500">
               Key: {currentState.maskedKey} · 模型: {currentState.model}
             </span>
           )}
           {!currentState.configured && (
-            <span className="text-[var(--muted-foreground)]">未配置</span>
+            <span className="text-default-400">未配置</span>
           )}
         </div>
 
         {/* API Key */}
         <div>
-          <label className="block text-sm font-medium mb-1">API Key</label>
-          <input
+          <Input
             type="password"
+            label="API Key"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder={currentState.configured ? '输入新 Key 以更新' : `${currentPreset.name} API Key`}
-            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-              focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-              placeholder:text-[var(--muted-foreground)]"
+            variant="bordered"
           />
           {currentPreset.keyUrl && (
-            <p className="text-xs text-[var(--muted-foreground)] mt-1">
+            <p className="text-xs text-default-400 mt-1">
               <a
                 href={currentPreset.keyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[var(--accent)] hover:underline inline-flex items-center gap-0.5"
+                className="text-primary hover:underline inline-flex items-center gap-0.5"
               >
                 获取 API Key <ExternalLink className="w-3 h-3" />
               </a>
@@ -353,110 +351,95 @@ export default function AdminSettingsPage() {
 
         {/* Model */}
         <div>
-          <label className="block text-sm font-medium mb-1">模型</label>
           {currentPreset.models.length > 0 ? (
-            <select
+            <Select
+              label="模型"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-                focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
-            >
-              {currentPreset.models.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+              variant="bordered"
+              options={currentPreset.models.map((m) => ({ value: m, label: m }))}
+            />
           ) : (
-            <input
-              type="text"
+            <Input
+              label="模型"
               value={customModel}
               onChange={(e) => setCustomModel(e.target.value)}
               placeholder="输入模型名称，如 gpt-4o"
-              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-                focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-                placeholder:text-[var(--muted-foreground)]"
+              variant="bordered"
             />
           )}
         </div>
 
         {/* Base URL */}
-        <div>
-          <label className="block text-sm font-medium mb-1">API 地址</label>
-          <input
-            type="text"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="https://..."
-            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-              focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-              placeholder:text-[var(--muted-foreground)]"
-          />
-        </div>
+        <Input
+          label="API 地址"
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
+          placeholder="https://..."
+          variant="bordered"
+        />
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         {/* Test result */}
         {testResult && (
-          <div className={`flex items-start gap-2 p-3 rounded-lg text-sm ${
-            testResult.ok
-              ? 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
-              : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
-          }`}>
-            {testResult.ok
-              ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-              : <XCircle className="w-4 h-4 mt-0.5 shrink-0" />}
-            <div className="min-w-0">
-              <p className="font-medium">{testResult.message}</p>
-              {testResult.latencyMs !== undefined && (
-                <p className="text-xs opacity-75 mt-0.5">延迟：{testResult.latencyMs} ms</p>
-              )}
-              {testResult.reply && (
-                <p className="text-xs opacity-75 mt-0.5 truncate">AI 回复：{testResult.reply}</p>
-              )}
+          <Card
+            variant="bordered"
+            className={`p-3 ${
+              testResult.ok
+                ? 'border-success/30 bg-success/5 text-success'
+                : 'border-danger/30 bg-danger/5 text-danger'
+            }`}
+          >
+            <div className="flex items-start gap-2 text-sm">
+              {testResult.ok
+                ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+                : <XCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+              <div className="min-w-0">
+                <p className="font-medium">{testResult.message}</p>
+                {testResult.latencyMs !== undefined && (
+                  <p className="text-xs opacity-75 mt-0.5">延迟：{testResult.latencyMs} ms</p>
+                )}
+                {testResult.reply && (
+                  <p className="text-xs opacity-75 mt-0.5 truncate">AI 回复：{testResult.reply}</p>
+                )}
+              </div>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Buttons */}
         <div className="flex gap-3 flex-wrap">
-          <button
+          <Button
+            color="primary"
+            className="flex-1"
             onClick={handleSave}
-            disabled={saving || !apiKey.trim()}
-            className="flex-1 py-2 rounded-lg bg-[var(--foreground)] text-[var(--background)] text-sm font-medium
-              hover:opacity-90 transition-opacity disabled:opacity-50
-              flex items-center justify-center gap-2"
+            isLoading={saving}
+            isDisabled={!apiKey.trim()}
+            startContent={saved ? <Check className="w-4 h-4" /> : undefined}
           >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : saved ? (
-              <><Check className="w-4 h-4" /> 已保存</>
-            ) : (
-              '保存'
-            )}
-          </button>
+            {saved ? '已保存' : '保存'}
+          </Button>
 
-          {/* Test button: available if a new key is typed OR a config is already saved */}
           {(apiKey.trim() || currentState.configured) && (
-            <button
+            <Button
+              variant="bordered"
               onClick={handleTest}
-              disabled={testing}
-              className="px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium
-                hover:bg-[var(--muted)] transition-colors disabled:opacity-50
-                flex items-center justify-center gap-2"
+              isLoading={testing}
+              startContent={!testing ? <Zap className="w-4 h-4" /> : undefined}
             >
-              {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Zap className="w-4 h-4" /> 测试连接</>}
-            </button>
+              测试连接
+            </Button>
           )}
 
           {!isActive && currentState.configured && (
-            <button
+            <Button
+              variant="bordered"
               onClick={handleSetActive}
-              disabled={switching}
-              className="px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium
-                hover:bg-[var(--muted)] transition-colors disabled:opacity-50
-                flex items-center justify-center gap-2"
+              isLoading={switching}
             >
-              {switching ? <Loader2 className="w-4 h-4 animate-spin" /> : '设为当前使用'}
-            </button>
+              设为当前使用
+            </Button>
           )}
         </div>
       </div>

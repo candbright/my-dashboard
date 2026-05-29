@@ -140,7 +140,7 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
             fontSize: '16px',
             fontWeight: 500,
             margin: '0 0 16px 0',
-            color: '#6366f1',
+            color: '#006FEE',
           }}>
             {frontmatter.title}
           </p>
@@ -157,7 +157,7 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
         }}>
           {contactLinks.map(({ icon: Icon, value, label }) => (
             <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Icon style={{ width: '14px', height: '14px', color: '#6366f1', flexShrink: 0 } as React.CSSProperties} className="" />
+              <Icon style={{ width: '14px', height: '14px', color: '#006FEE', flexShrink: 0 } as React.CSSProperties} className="" />
               <span>{formatContactValue(value!, label)}</span>
             </span>
           ))}
@@ -244,7 +244,7 @@ function PrintItem({ item }: { item: ResumeSectionItem }) {
             {item.title}
           </span>
           {item.subtitle && (
-            <span style={{ color: '#6366f1', fontSize: '14px', fontWeight: 500, marginLeft: '8px' }}>
+            <span style={{ color: '#006FEE', fontSize: '14px', fontWeight: 500, marginLeft: '8px' }}>
               {item.subtitle}
             </span>
           )}

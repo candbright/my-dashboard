@@ -2,12 +2,12 @@
 
 import { useState, useEffect, FormEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
-
-type LoginMethod = 'password' | 'code';
+import { useCountdown } from '@/hooks/useCountdown';
+import { Button, Input, Card, CardBody, Tabs } from '@/components/ui';
+import { Send } from 'lucide-react';
 
 export default function LoginPage() {
   return (
@@ -22,16 +22,15 @@ function LoginForm() {
   const [email, setEmail] = useState(() => searchParams.get('email') ?? '');
   const [password, setPassword] = useState(() => searchParams.get('password') ?? '');
   const [code, setCode] = useState('');
-  const [method, setMethod] = useState<LoginMethod>('password');
+  const [method, setMethod] = useState<'password' | 'code'>('password');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, startCooldown] = useCountdown(60);
   const { login, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Keep state in sync if params change (e.g. browser back/forward)
   useEffect(() => {
     const p = searchParams.get('email');
     if (p) setEmail(p);
@@ -50,28 +49,13 @@ function LoginForm() {
 
   if (isAuthenticated) return null;
 
-  const startCooldown = () => {
-    setCooldown(60);
-    const timer = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
   const handleSendCode = async () => {
     if (!email.trim()) {
       setError('请输入邮箱地址');
       return;
     }
-
     setSendingCode(true);
     setError(null);
-
     try {
       const res = await apiFetch('/api/auth/send-code', {
         method: 'POST',
@@ -79,14 +63,9 @@ function LoginForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '发送失败');
-
       setCodeSent(true);
       startCooldown();
-
-      // In dev mode, auto-fill the code
-      if (data._devCode) {
-        setCode(data._devCode);
-      }
+      if (data._devCode) setCode(data._devCode);
     } catch (err) {
       setError(err instanceof Error ? err.message : '发送验证码失败');
     } finally {
@@ -98,7 +77,6 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       if (method === 'code') {
         await login(email.trim(), undefined, code.trim(), 'code');
@@ -116,120 +94,133 @@ function LoginForm() {
   return (
     <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
         className="w-full max-w-sm"
       >
-        <h1 className="text-xl font-bold tracking-tight mb-6">登录</h1>
-
-        {/* Method tabs */}
-        <div className="flex gap-4 mb-5 border-b border-[var(--border)]">
-          {[
-            { id: 'password' as LoginMethod, label: '密码登录' },
-            { id: 'code' as LoginMethod, label: '验证码登录' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => { setMethod(tab.id); setError(null); }}
-              className={`relative pb-2 text-sm font-medium transition-colors ${
-                method === tab.id
-                  ? 'text-[var(--foreground)]'
-                  : 'text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-              }`}
-            >
-              {tab.label}
-              {method === tab.id && (
-                <motion.span
-                  layoutId="login-tab-underline"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)] rounded-full"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                />
-              )}
-            </button>
-          ))}
+        <div className="text-center mb-8">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4">
+            <span className="text-white text-xl font-bold">R</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">欢迎回来</h1>
+          <p className="text-sm text-default-500 mt-1">登录你的 ResumeVault 账号</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <p className="text-sm text-red-500">{error}</p>
-          )}
-
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-              focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-              placeholder:text-[var(--muted-foreground)]"
-            placeholder="邮箱"
-            autoFocus
-          />
-
-          {method === 'password' ? (
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-                focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-                placeholder:text-[var(--muted-foreground)]"
-              placeholder="密码"
+        <Card variant="bordered">
+          <CardBody className="p-6 space-y-5">
+            {/* Method tabs */}
+            <Tabs
+              variant="solid"
+              size="sm"
+              fullWidth
+              items={[
+                { key: 'password', label: '密码登录' },
+                { key: 'code', label: '验证码登录' },
+              ]}
+              selectedKey={method}
+              onSelectionChange={(k) => {
+                setMethod(k as 'password' | 'code');
+                setError(null);
+              }}
             />
-          ) : (
-            <div className="flex gap-2">
-              <input
-                type="text"
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="text-sm text-danger bg-danger/10 rounded-xl px-4 py-2.5">
+                  {error}
+                </div>
+              )}
+
+              <Input
+                type="email"
                 required
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-sm
-                  focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-                  placeholder:text-[var(--muted-foreground)]"
-                placeholder="6位验证码"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="邮箱地址"
+                label="邮箱"
+                autoFocus
               />
-              <button
-                type="button"
-                onClick={handleSendCode}
-                disabled={sendingCode || cooldown > 0}
-                className="shrink-0 px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium
-                  hover:bg-[var(--muted)] transition-colors disabled:opacity-50 whitespace-nowrap"
-              >
-                {sendingCode ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : cooldown > 0 ? (
-                  `${cooldown}s`
-                ) : codeSent ? (
-                  '重新发送'
+
+              <AnimatePresence mode="wait">
+                {method === 'password' ? (
+                  <motion.div
+                    key="password"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="输入密码"
+                      label="密码"
+                    />
+                  </motion.div>
                 ) : (
-                  '发送验证码'
+                  <motion.div
+                    key="code"
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 8 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-1.5"
+                  >
+                    <label className="text-sm font-medium text-foreground">验证码</label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        required
+                        maxLength={6}
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                        placeholder="6位验证码"
+                      />
+                      <Button
+                        type="button"
+                        variant="bordered"
+                        size="md"
+                        onClick={handleSendCode}
+                        disabled={sendingCode || cooldown > 0}
+                        isLoading={sendingCode}
+                        className="shrink-0 whitespace-nowrap"
+                        startContent={!sendingCode && cooldown === 0 ? <Send className="w-3.5 h-3.5" /> : undefined}
+                      >
+                        {cooldown > 0
+                          ? `${cooldown}s`
+                          : codeSent
+                          ? '重新发送'
+                          : '发送'}
+                      </Button>
+                    </div>
+                  </motion.div>
                 )}
-              </button>
-            </div>
-          )}
+              </AnimatePresence>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 rounded-lg bg-[var(--foreground)] text-[var(--background)] text-sm font-medium
-              hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : '登录'}
-          </button>
-        </form>
+              <Button
+                type="submit"
+                color="primary"
+                variant="solid"
+                fullWidth
+                isLoading={loading}
+              >
+                登录
+              </Button>
+            </form>
+          </CardBody>
+        </Card>
 
-        <p className="text-center text-sm text-[var(--muted-foreground)] mt-4">
+        <p className="text-center text-sm text-default-500 mt-5">
           还没有账号？{' '}
           <button
             type="button"
             onClick={goToRegister}
-            className="text-[var(--accent)] hover:underline"
+            className="text-primary font-medium hover:underline"
           >
-            注册
+            立即注册
           </button>
         </p>
       </motion.div>

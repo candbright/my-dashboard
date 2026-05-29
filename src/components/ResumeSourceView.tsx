@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, Check, ArrowLeft, Download } from 'lucide-react';
+import { Button, Card } from '@/components/ui';
 
 interface ResumeSourceViewProps {
   markdown: string;
@@ -30,8 +31,8 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
 
   // Simple syntax highlighting for Markdown
   const highlightedLines = markdown.split('\n').map((line, i) => {
-    let className = 'text-[var(--foreground)]';
-    let prefix = '';
+    let className = 'text-foreground';
+    const prefix = '';
 
     if (line.startsWith('---')) {
       className = 'text-purple-400';
@@ -43,7 +44,6 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
       className = 'text-amber-400 italic';
     } else if (line.match(/^[-*]\s/)) {
       className = 'text-green-400';
-      prefix = '';
     } else if (line.match(/^[a-z_]+:/)) {
       className = 'text-orange-400';
     } else if (line.trim() === '') {
@@ -60,39 +60,32 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-xl hover:bg-[var(--muted)] transition-colors"
+            className="p-2 rounded-xl hover:bg-default-100 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">源文件</h1>
-            <p className="text-sm text-[var(--muted-foreground)]">Markdown 格式</p>
+            <p className="text-sm text-default-500">Markdown 格式</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
+            variant="bordered"
             onClick={handleDownload}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-[var(--border)] hover:bg-[var(--muted)] transition-colors"
+            startContent={<Download className="w-4 h-4" />}
           >
-            <Download className="w-4 h-4" />
             下载
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="bordered"
             onClick={handleCopy}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border border-[var(--border)] hover:bg-[var(--muted)] transition-colors"
+            startContent={
+              copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />
+            }
           >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4 text-green-500" />
-                已复制
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                复制
-              </>
-            )}
-          </button>
+            {copied ? '已复制' : '复制'}
+          </Button>
         </div>
       </div>
 
@@ -100,30 +93,31 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-[var(--card)] border border-[var(--border)] rounded-2xl overflow-hidden"
       >
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-[var(--border)] bg-[var(--muted)]/30">
-          <div className="w-3 h-3 rounded-full bg-red-400/80" />
-          <div className="w-3 h-3 rounded-full bg-yellow-400/80" />
-          <div className="w-3 h-3 rounded-full bg-green-400/80" />
-          <span className="ml-3 text-xs text-[var(--muted-foreground)]">resume.md</span>
-        </div>
-        <div className="overflow-hidden">
-          <pre className="p-5 text-sm leading-relaxed font-mono whitespace-pre-wrap break-words">
-            <code>
-              {highlightedLines.map(({ text, className, key }) => (
-                <div key={key} className="flex">
-                  <span className="w-8 shrink-0 text-right pr-4 text-[var(--muted-foreground)]/50 select-none text-xs leading-relaxed">
-                    {key + 1}
-                  </span>
-                  <span className={`${className} break-all`}>
-                    {text || '\u00A0'}
-                  </span>
-                </div>
-              ))}
-            </code>
-          </pre>
-        </div>
+        <Card variant="bordered" className="overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-default-200 bg-content2/30">
+            <div className="w-3 h-3 rounded-full bg-danger/60" />
+            <div className="w-3 h-3 rounded-full bg-warning/60" />
+            <div className="w-3 h-3 rounded-full bg-success/60" />
+            <span className="ml-3 text-xs text-default-500">resume.md</span>
+          </div>
+          <div className="overflow-hidden">
+            <pre className="p-5 text-sm leading-relaxed font-mono whitespace-pre-wrap break-words">
+              <code>
+                {highlightedLines.map(({ text, className, key }) => (
+                  <div key={key} className="flex">
+                    <span className="w-8 shrink-0 text-right pr-4 text-default-300 select-none text-xs leading-relaxed">
+                      {key + 1}
+                    </span>
+                    <span className={`${className} break-all`}>
+                      {text || '\u00A0'}
+                    </span>
+                  </div>
+                ))}
+              </code>
+            </pre>
+          </div>
+        </Card>
       </motion.div>
     </div>
   );

@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-client';
+import { Button, Spinner, Card } from '@/components/ui';
+import Link from 'next/link';
 
 type Stage = 'input' | 'parsing' | 'preview' | 'saving' | 'done';
 
@@ -502,24 +504,23 @@ export function AIUpload() {
   if (aiConfigured === false) {
     return (
       <div className="w-full max-w-xl mx-auto">
-        <div className="border border-amber-200 dark:border-amber-800/40 rounded-2xl p-8 bg-amber-50/50 dark:bg-amber-950/20 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
-            <Settings className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        <Card variant="bordered" className="p-8 border-warning/30 bg-warning/5 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-warning/10 flex items-center justify-center mx-auto mb-4">
+            <Settings className="w-6 h-6 text-warning" />
           </div>
           <h3 className="text-lg font-semibold mb-2">需要配置 API Key</h3>
-          <p className="text-sm text-[var(--muted-foreground)] mb-5">
+          <p className="text-sm text-default-500 mb-5">
             AI 解析功能需要 DeepSeek API Key，请先在设置页面完成配置。
           </p>
-          <a
-            href="/settings"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-              bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white text-sm font-medium
-              hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-shadow duration-300"
-          >
-            <Settings className="w-4 h-4" />
-            前往设置
-          </a>
-        </div>
+          <Link href="/settings">
+            <Button
+              color="primary"
+              startContent={<Settings className="w-4 h-4" />}
+            >
+              前往设置
+            </Button>
+          </Link>
+        </Card>
       </div>
     );
   }
@@ -528,7 +529,7 @@ export function AIUpload() {
   if (aiConfigured === null) {
     return (
       <div className="w-full max-w-xl mx-auto flex justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--muted-foreground)]" />
+        <Spinner size="md" />
       </div>
     );
   }
@@ -547,28 +548,24 @@ export function AIUpload() {
           >
             {/* Mode toggle */}
             <div className="flex gap-2 mb-5">
-              <button
+              <Button
+                variant={inputMode === 'file' ? 'solid' : 'flat'}
+                color={inputMode === 'file' ? 'primary' : 'default'}
+                className="flex-1"
                 onClick={() => setInputMode('file')}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2
-                  ${inputMode === 'file'
-                    ? 'bg-[var(--accent)] text-white shadow-md shadow-[var(--accent-glow)]'
-                    : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--border)]'
-                  }`}
+                startContent={<FileText className="w-4 h-4" />}
               >
-                <FileText className="w-4 h-4" />
                 上传文件
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={inputMode === 'text' ? 'solid' : 'flat'}
+                color={inputMode === 'text' ? 'primary' : 'default'}
+                className="flex-1"
                 onClick={() => setInputMode('text')}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2
-                  ${inputMode === 'text'
-                    ? 'bg-[var(--accent)] text-white shadow-md shadow-[var(--accent-glow)]'
-                    : 'bg-[var(--muted)] text-[var(--muted-foreground)] hover:bg-[var(--border)]'
-                  }`}
+                startContent={<ClipboardPaste className="w-4 h-4" />}
               >
-                <ClipboardPaste className="w-4 h-4" />
                 粘贴文本
-              </button>
+              </Button>
             </div>
 
             {inputMode === 'file' ? (
@@ -581,8 +578,8 @@ export function AIUpload() {
                     onClick={() => fileInputRef.current?.click()}
                     className={`cursor-pointer border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300
                       ${isDragging
-                        ? 'border-[var(--accent)] bg-[var(--accent-glow)] scale-[1.02]'
-                        : 'border-[var(--border)] hover:border-[var(--accent)] hover:bg-[var(--accent-glow)]'
+                        ? 'border-primary bg-primary/5 scale-[1.02]'
+                        : 'border-default-300 hover:border-primary hover:bg-primary/5'
                       }`}
                   >
                     <input
@@ -596,36 +593,36 @@ export function AIUpload() {
                       animate={isDragging ? { scale: 1.15, y: -5 } : { scale: 1, y: 0 }}
                       className="flex flex-col items-center gap-4"
                     >
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--gradient-start)] to-[var(--gradient-end)] flex items-center justify-center opacity-80">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center opacity-80">
                         <Sparkles className="w-7 h-7 text-white" />
                       </div>
                       <div>
                         <p className="text-lg font-medium mb-1">
                           {isDragging ? '松开即可上传' : '拖拽简历文件到这里'}
                         </p>
-                        <p className="text-sm text-[var(--muted-foreground)]">
+                        <p className="text-sm text-default-500">
                           支持 .md、.txt、.html 等文本格式
                         </p>
                       </div>
                     </motion.div>
                   </div>
                 ) : (
-                  <div className="border border-[var(--border)] rounded-2xl p-5">
+                  <div className="border border-default-200 rounded-2xl p-5">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-[var(--accent-glow)] flex items-center justify-center">
-                        <FileText className="w-6 h-6 text-[var(--accent)]" />
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <FileText className="w-6 h-6 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{file.name}</p>
-                        <p className="text-sm text-[var(--muted-foreground)]">
+                        <p className="text-sm text-default-500">
                           {(file.size / 1024).toFixed(1)} KB
                         </p>
                       </div>
                       <button
                         onClick={removeFile}
-                        className="p-2 rounded-lg hover:bg-[var(--muted)] transition-colors"
+                        className="p-2 rounded-lg hover:bg-default-100 transition-colors"
                       >
-                        <X className="w-4 h-4 text-[var(--muted-foreground)]" />
+                        <X className="w-4 h-4 text-default-500" />
                       </button>
                     </div>
                   </div>
@@ -637,28 +634,25 @@ export function AIUpload() {
                 onChange={(e) => setPasteText(e.target.value)}
                 placeholder={"将简历内容粘贴到这里，支持任意格式的简历文本，AI 会自动识别并转换。"}
                 rows={12}
-                className="w-full px-4 py-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] text-sm
-                  focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent
-                  placeholder:text-[var(--muted-foreground)] transition-all duration-200 resize-none font-mono leading-relaxed"
+                className="w-full px-4 py-3 rounded-2xl border border-default-200 bg-content1 text-sm
+                  focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+                  placeholder:text-default-400 transition-all duration-200 resize-none font-mono leading-relaxed"
               />
             )}
 
             {/* Parse button */}
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+            <Button
+              color="primary"
+              size="lg"
+              className="w-full mt-5"
               onClick={startAIParse}
-              disabled={inputMode === 'file' ? !file : !pasteText.trim()}
-              className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white font-medium
-                hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-shadow duration-300
-                disabled:opacity-60 disabled:cursor-not-allowed
-                flex items-center justify-center gap-2"
+              isDisabled={inputMode === 'file' ? !file : !pasteText.trim()}
+              startContent={<Sparkles className="w-4 h-4" />}
             >
-              <Sparkles className="w-4 h-4" />
               AI 智能解析
-            </motion.button>
+            </Button>
 
-            <p className="text-xs text-[var(--muted-foreground)] text-center mt-3">
+            <p className="text-xs text-default-400 text-center mt-3">
               使用 DeepSeek API 解析，每次约消耗 0.01-0.05 元
             </p>
           </motion.div>
@@ -674,23 +668,23 @@ export function AIUpload() {
             className="max-w-2xl mx-auto"
           >
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-8 h-8 rounded-lg bg-[var(--accent-glow)] flex items-center justify-center">
-                <Loader2 className="w-4 h-4 animate-spin text-[var(--accent)]" />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
               </div>
               <div>
                 <p className="font-medium">AI 正在解析简历...</p>
-                <p className="text-sm text-[var(--muted-foreground)]">
+                <p className="text-sm text-default-500">
                   正在将内容转换为标准简历格式
                 </p>
               </div>
             </div>
 
-            <div className="border border-[var(--border)] rounded-2xl p-5 bg-[var(--card)] max-h-[500px] overflow-y-auto">
-              <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
+            <Card variant="bordered" className="p-5 max-h-[500px] overflow-y-auto">
+              <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed text-foreground">
                 {parsedMarkdown || '等待 AI 响应...'}
-                <span className="inline-block w-2 h-4 bg-[var(--accent)] animate-pulse ml-0.5" />
+                <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />
               </pre>
-            </div>
+            </Card>
           </motion.div>
         )}
 
@@ -705,43 +699,44 @@ export function AIUpload() {
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                  <Check className="w-4 h-4 text-success" />
                 </div>
                 <div>
                   <p className="font-medium">{restoredSession ? '已恢复未完成的会话' : '解析完成'}</p>
-                  <p className="text-sm text-[var(--muted-foreground)]">
+                  <p className="text-sm text-default-500">
                     可通过右侧对话继续优化，满意后点击保存
                   </p>
                 </div>
               </div>
-              <button
+              <Button
+                variant="light"
+                size="sm"
                 onClick={() => setShowPreview(!showPreview)}
-                className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors px-3 py-1.5 rounded-lg hover:bg-[var(--muted)]"
+                startContent={showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               >
-                {showPreview ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 {showPreview ? '编辑源码' : '预览'}
-              </button>
+              </Button>
             </div>
 
             {/* Two column layout: Preview + Chat */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 lg:h-[600px]">
               {/* Left: Resume Preview/Edit */}
-              <div className="border border-[var(--border)] rounded-2xl overflow-hidden flex flex-col h-[500px] lg:h-auto">
-                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--border)] bg-[var(--muted)]/30">
-                  <FileText className="w-4 h-4 text-[var(--muted-foreground)]" />
-                  <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              <div className="border border-default-200 rounded-2xl overflow-hidden flex flex-col h-[500px] lg:h-auto">
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-default-200 bg-content2/30">
+                  <FileText className="w-4 h-4 text-default-500" />
+                  <span className="text-xs font-medium text-default-500">
                     {showPreview ? '简历预览' : '源码编辑'}
                   </span>
                   {history.length > 1 && (
-                    <span className="text-xs text-[var(--accent)] ml-auto font-medium">
+                    <span className="text-xs text-primary ml-auto font-medium">
                       v{history.length - 1} · {history.filter(h => h.version > 0).length} 次修改
                     </span>
                   )}
                 </div>
                 {showPreview ? (
-                  <div className="p-5 bg-[var(--card)] overflow-y-auto flex-1">
-                    <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
+                  <div className="p-5 bg-content1 overflow-y-auto flex-1">
+                    <pre className="text-sm font-mono whitespace-pre-wrap leading-relaxed text-foreground">
                       {parsedMarkdown}
                     </pre>
                   </div>
@@ -749,21 +744,21 @@ export function AIUpload() {
                   <textarea
                     value={parsedMarkdown}
                     onChange={(e) => setParsedMarkdown(e.target.value)}
-                    className="w-full flex-1 px-5 py-4 bg-[var(--card)] text-sm font-mono leading-relaxed
+                    className="w-full flex-1 px-5 py-4 bg-content1 text-sm font-mono leading-relaxed
                       focus:outline-none resize-none"
                   />
                 )}
               </div>
 
               {/* Right: Chat Panel */}
-              <div className="border border-[var(--border)] rounded-2xl overflow-hidden flex flex-col h-[500px] lg:h-auto bg-[var(--card)]">
-                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--border)] bg-[var(--muted)]/30">
-                  <MessageSquare className="w-4 h-4 text-[var(--accent)]" />
-                  <span className="text-xs font-medium text-[var(--muted-foreground)]">
+              <div className="border border-default-200 rounded-2xl overflow-hidden flex flex-col h-[500px] lg:h-auto bg-content1">
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-default-200 bg-content2/30">
+                  <MessageSquare className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-medium text-default-500">
                     AI 优化助手
                   </span>
                   {chatMessages.length > 0 && (
-                    <span className="text-xs text-[var(--muted-foreground)] ml-auto">
+                    <span className="text-xs text-default-500 ml-auto">
                       {chatMessages.filter((m) => m.role === 'user').length} 轮对话
                     </span>
                   )}
@@ -773,11 +768,11 @@ export function AIUpload() {
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {chatMessages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-center py-8">
-                      <div className="w-12 h-12 rounded-2xl bg-[var(--accent-glow)] flex items-center justify-center mb-4">
-                        <Sparkles className="w-5 h-5 text-[var(--accent)]" />
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                        <Sparkles className="w-5 h-5 text-primary" />
                       </div>
                       <p className="text-sm font-medium mb-2">AI 优化助手</p>
-                      <p className="text-xs text-[var(--muted-foreground)] max-w-[200px] leading-relaxed">
+                      <p className="text-xs text-default-500 max-w-[200px] leading-relaxed">
                         告诉 AI 你想如何优化简历内容，例如：
                       </p>
                       <div className="flex flex-col gap-1.5 mt-3">
@@ -793,7 +788,7 @@ export function AIUpload() {
                               setChatInput(suggestion);
                               chatInputRef.current?.focus();
                             }}
-                            className="text-xs text-[var(--accent)] hover:bg-[var(--accent-glow)] px-3 py-1.5 rounded-lg transition-colors text-left"
+                            className="text-xs text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors text-left"
                           >
                             {suggestion}
                           </button>
@@ -814,8 +809,8 @@ export function AIUpload() {
                           <div
                             className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                               msg.role === 'user'
-                                ? 'bg-[var(--accent)] text-white rounded-br-md'
-                                : 'bg-[var(--muted)] text-[var(--foreground)] rounded-bl-md'
+                                ? 'bg-primary text-white rounded-br-md'
+                                : 'bg-default-100 text-foreground rounded-bl-md'
                             }`}
                           >
                             {msg.role === 'assistant' ? (
@@ -828,10 +823,10 @@ export function AIUpload() {
 
                         {entry && !msg.isStreaming && prevEntry && (
                           <div className="flex items-center gap-2 pl-1">
-                            <span className="text-[10px] text-[var(--muted-foreground)] font-mono">v{entry.version}</span>
+                            <span className="text-[10px] text-default-400 font-mono">v{entry.version}</span>
                             <button
                               onClick={() => setExpandedDiff(expandedDiff === msg.id ? null : msg.id)}
-                              className="text-[10px] text-[var(--accent)] hover:underline"
+                              className="text-[10px] text-primary hover:underline"
                             >
                               {expandedDiff === msg.id ? '收起修改' : '查看修改'}
                             </button>
@@ -847,12 +842,12 @@ export function AIUpload() {
                         )}
 
                         {expandedDiff === msg.id && entry && prevEntry && (
-                          <div className="ml-1 rounded-lg border border-[var(--border)] overflow-hidden text-[11px] font-mono max-h-[200px] overflow-y-auto">
+                          <div className="ml-1 rounded-lg border border-default-200 overflow-hidden text-[11px] font-mono max-h-[200px] overflow-y-auto">
                             {(() => {
                               const changedLines = computeLineDiff(prevEntry.markdown, entry.markdown)
                                 .filter(d => d.type !== 'unchanged');
                               if (changedLines.length === 0) {
-                                return <div className="px-2 py-1 text-[var(--muted-foreground)]">无文本差异</div>;
+                                return <div className="px-2 py-1 text-default-400">无文本差异</div>;
                               }
                               return changedLines.map((d, idx) => (
                                 <div key={idx} className={`px-2 py-px ${
@@ -875,7 +870,7 @@ export function AIUpload() {
                 </div>
 
                 {/* Chat Input */}
-                <div className="border-t border-[var(--border)] p-3">
+                <div className="border-t border-default-200 p-3">
                   <div className="flex items-end gap-2">
                     <textarea
                       ref={chatInputRef}
@@ -884,9 +879,9 @@ export function AIUpload() {
                       onKeyDown={handleChatKeyDown}
                       placeholder="输入优化需求..."
                       rows={1}
-                      className="flex-1 px-3 py-2 rounded-xl bg-[var(--background)] border border-[var(--border)] text-sm
-                        focus:outline-none focus:ring-1 focus:ring-[var(--accent)] focus:border-[var(--accent)]
-                        placeholder:text-[var(--muted-foreground)] resize-none transition-colors max-h-[80px]"
+                      className="flex-1 px-3 py-2 rounded-xl bg-background border border-default-200 text-sm
+                        focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary
+                        placeholder:text-default-400 resize-none transition-colors max-h-[80px]"
                       style={{ minHeight: '38px' }}
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
@@ -897,7 +892,7 @@ export function AIUpload() {
                     <button
                       onClick={sendChatMessage}
                       disabled={!chatInput.trim() || chatLoading}
-                      className="p-2 rounded-xl bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40 flex-shrink-0"
+                      className="p-2 rounded-xl bg-primary text-white hover:opacity-90 transition-opacity disabled:opacity-40 flex-shrink-0"
                     >
                       {chatLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -906,7 +901,7 @@ export function AIUpload() {
                       )}
                     </button>
                   </div>
-                  <p className="text-[10px] text-[var(--muted-foreground)] mt-1.5 text-center">
+                  <p className="text-[10px] text-default-400 mt-1.5 text-center">
                     Enter 发送 · Shift+Enter 换行
                   </p>
                 </div>
@@ -915,25 +910,22 @@ export function AIUpload() {
 
             {/* Action buttons */}
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="bordered"
                 onClick={resetAll}
-                className="py-3 px-5 rounded-xl border border-[var(--border)] text-sm font-medium
-                  hover:bg-[var(--muted)] transition-colors flex items-center justify-center gap-2"
+                startContent={<RotateCcw className="w-4 h-4" />}
               >
-                <RotateCcw className="w-4 h-4" />
                 重新解析
-              </button>
-              <motion.button
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
+              </Button>
+              <Button
+                color="primary"
+                className="flex-1"
+                size="lg"
                 onClick={saveResult}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--gradient-start)] to-[var(--gradient-end)] text-white font-medium
-                  hover:shadow-lg hover:shadow-[var(--accent-glow)] transition-shadow duration-300
-                  flex items-center justify-center gap-2"
+                startContent={<Upload className="w-4 h-4" />}
               >
-                <Upload className="w-4 h-4" />
                 确认并保存简历
-              </motion.button>
+              </Button>
             </div>
           </motion.div>
         )}
@@ -946,7 +938,7 @@ export function AIUpload() {
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-center justify-center py-16"
           >
-            <Loader2 className="w-8 h-8 animate-spin text-[var(--accent)] mb-4" />
+            <Spinner size="lg" color="primary" className="mb-4" />
             <p className="font-medium">正在保存简历...</p>
           </motion.div>
         )}
@@ -959,11 +951,11 @@ export function AIUpload() {
             animate={{ opacity: 1, scale: 1 }}
             className="flex flex-col items-center justify-center py-16"
           >
-            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
-              <Check className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+            <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mb-4">
+              <Check className="w-8 h-8 text-success" />
             </div>
             <p className="text-lg font-semibold mb-1">保存成功！</p>
-            <p className="text-sm text-[var(--muted-foreground)]">
+            <p className="text-sm text-default-500">
               正在跳转到仪表盘...
             </p>
           </motion.div>
@@ -975,7 +967,7 @@ export function AIUpload() {
         <motion.div
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-4 flex items-center gap-2 text-sm text-red-500 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 max-w-2xl mx-auto"
+          className="mt-4 flex items-center gap-2 text-sm text-danger p-3 rounded-xl bg-danger/10 max-w-2xl mx-auto"
         >
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
@@ -994,7 +986,7 @@ function AssistantMessage({ content, isStreaming }: { content: string; isStreami
 
   if (!content.trim()) {
     return (
-      <span className="flex items-center gap-1.5 text-[var(--muted-foreground)]">
+      <span className="flex items-center gap-1.5 text-default-400">
         <Loader2 className="w-3 h-3 animate-spin" />
         思考中...
       </span>
@@ -1013,9 +1005,9 @@ function AssistantMessage({ content, isStreaming }: { content: string; isStreami
     return (
       <div className="space-y-1.5">
         {comment && (
-          <p className="text-[var(--foreground)]">{comment}</p>
+          <p className="text-foreground">{comment}</p>
         )}
-        <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+        <div className="flex items-center gap-1.5 text-xs text-default-400">
           <Check className="w-3 h-3 text-emerald-500" />
           已更新简历（{sectionCount} 个模块），左侧已同步
         </div>
@@ -1030,7 +1022,7 @@ function AssistantMessage({ content, isStreaming }: { content: string; isStreami
     return (
       <div className="space-y-1">
         <p className="whitespace-pre-wrap text-xs opacity-70 line-clamp-3">{preview}</p>
-        <span className="inline-block w-1.5 h-3 bg-[var(--accent)] animate-pulse" />
+        <span className="inline-block w-1.5 h-3 bg-primary animate-pulse" />
       </div>
     );
   }

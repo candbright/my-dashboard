@@ -1,58 +1,167 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────
+   HeroUI-inspired Design Tokens
+   ───────────────────────────────────────────────────── */
+
 :root {
-  --background: #fafafa;
-  --foreground: #0a0a0a;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
-  --accent: #6366f1;
-  --accent-light: #818cf8;
-  --accent-glow: rgba(99, 102, 241, 0.15);
-  --gradient-start: #6366f1;
-  --gradient-end: #a855f7;
-  --radius: 16px;
+  /* Background */
+  --background: #ffffff;
+  --foreground: #11181c;
+
+  /* Content surfaces */
+  --content1: #ffffff;
+  --content2: #f4f4f5;
+  --content3: #e4e4e7;
+
+  /* Default (neutral) */
+  --default-50: #fafafa;
+  --default-100: #f4f4f5;
+  --default-200: #e4e4e7;
+  --default-300: #d4d4d8;
+  --default-400: #a1a1aa;
+  --default-500: #71717a;
+  --default-600: #52525b;
+  --default-700: #3f3f46;
+  --default-800: #27272a;
+  --default-900: #18181b;
+
+  /* Primary (HeroUI Blue) */
+  --primary: #006FEE;
+  --primary-foreground: #ffffff;
+  --primary-50: #e6f1fe;
+  --primary-100: #cce3fd;
+  --primary-200: #99c7fb;
+  --primary-300: #66aaf9;
+  --primary-400: #338ef7;
+  --primary-500: #006FEE;
+  --primary-600: #005bc4;
+  --primary-700: #004493;
+  --primary-800: #002e62;
+  --primary-900: #001731;
+
+  /* Secondary (Purple) */
+  --secondary: #7828c8;
+  --secondary-foreground: #ffffff;
+
+  /* Success */
+  --success: #17c964;
+  --success-foreground: #ffffff;
+
+  /* Warning */
+  --warning: #f5a524;
+  --warning-foreground: #000000;
+
+  /* Danger */
+  --danger: #f31260;
+  --danger-foreground: #ffffff;
+
+  /* Focus ring */
+  --focus: var(--primary);
+
+  /* Gradient */
+  --gradient-start: #006FEE;
+  --gradient-end: #7828c8;
 }
 
+/* ─────── Dark Mode ─────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #ecedee;
+
+    --content1: #18181b;
+    --content2: #27272a;
+    --content3: #3f3f46;
+
+    --default-50: #18181b;
+    --default-100: #27272a;
+    --default-200: #3f3f46;
+    --default-300: #52525b;
+    --default-400: #71717a;
+    --default-500: #a1a1aa;
+    --default-600: #d4d4d8;
+    --default-700: #e4e4e7;
+    --default-800: #f4f4f5;
+    --default-900: #fafafa;
+
+    --primary: #338ef7;
+    --primary-foreground: #ffffff;
+    --primary-50: #001731;
+    --primary-100: #002e62;
+    --primary-200: #004493;
+    --primary-300: #005bc4;
+    --primary-400: #006FEE;
+    --primary-500: #338ef7;
+    --primary-600: #66aaf9;
+    --primary-700: #99c7fb;
+    --primary-800: #cce3fd;
+    --primary-900: #e6f1fe;
+
+    --secondary: #9353d3;
+    --secondary-foreground: #ffffff;
+
+    --success: #45d483;
+    --success-foreground: #000000;
+
+    --warning: #f7b750;
+    --warning-foreground: #000000;
+
+    --danger: #f54180;
+    --danger-foreground: #ffffff;
+
+    --gradient-start: #338ef7;
+    --gradient-end: #9353d3;
+  }
+}
+
+/* ─────── Register tokens with Tailwind v4 ─────── */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
+
+  --color-content1: var(--content1);
+  --color-content2: var(--content2);
+  --color-content3: var(--content3);
+
+  --color-default-50: var(--default-50);
+  --color-default-100: var(--default-100);
+  --color-default-200: var(--default-200);
+  --color-default-300: var(--default-300);
+  --color-default-400: var(--default-400);
+  --color-default-500: var(--default-500);
+  --color-default-600: var(--default-600);
+  --color-default-700: var(--default-700);
+  --color-default-800: var(--default-800);
+  --color-default-900: var(--default-900);
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-accent: var(--accent);
-  --color-accent-light: var(--accent-light);
-  --color-accent-glow: var(--accent-glow);
+  --color-primary-50: var(--primary-50);
+  --color-primary-100: var(--primary-100);
+  --color-primary-200: var(--primary-200);
+  --color-primary-300: var(--primary-300);
+  --color-primary-400: var(--primary-400);
+  --color-primary-500: var(--primary-500);
+  --color-primary-600: var(--primary-600);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #09090b;
-    --foreground: #fafafa;
-    --muted: #18181b;
-    --muted-foreground: #a1a1aa;
-    --border: #27272a;
-    --card: #0f0f12;
-    --card-foreground: #fafafa;
-    --primary: #fafafa;
-    --primary-foreground: #18181b;
-    --accent: #818cf8;
-    --accent-light: #a5b4fc;
-    --accent-glow: rgba(129, 140, 248, 0.15);
-    --gradient-start: #818cf8;
-    --gradient-end: #c084fc;
-  }
-}
+/* ─────── Base ─────── */
 
 * {
   box-sizing: border-box;
@@ -67,19 +176,22 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--default-300);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
+  background: var(--default-400);
 }
 
-/* Glass effect utility */
+/* ─────── Utility Classes ─────── */
+
+/* Glass morphism */
 .glass {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
@@ -89,7 +201,7 @@ body {
 
 @media (prefers-color-scheme: dark) {
   .glass {
-    background: rgba(15, 15, 18, 0.7);
+    background: rgba(24, 24, 27, 0.7);
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
@@ -119,31 +231,38 @@ body {
   pointer-events: none;
 }
 
-/* Glow effect */
-.glow {
-  box-shadow: 0 0 40px var(--accent-glow);
+/* Glow */
+.glow-primary {
+  box-shadow: 0 0 40px rgba(0, 111, 238, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .glow-primary {
+    box-shadow: 0 0 40px rgba(51, 142, 247, 0.15);
+  }
 }
 
 /* Dot grid background */
 .dot-grid {
-  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--default-300) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 /* Upload dropzone */
 .dropzone-active {
-  border-color: var(--accent);
-  background: var(--accent-glow);
+  border-color: var(--primary);
+  background: rgba(0, 111, 238, 0.08);
 }
 
-/* Resume display styles */
+/* ─────── Resume Display ─────── */
+
 .resume-content h2 {
   font-size: 1.5rem;
   font-weight: 700;
   margin-top: 2rem;
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--default-200);
 }
 
 .resume-content h3 {
@@ -156,7 +275,7 @@ body {
 .resume-content p {
   margin-bottom: 0.75rem;
   line-height: 1.7;
-  color: var(--muted-foreground);
+  color: var(--default-500);
 }
 
 .resume-content ul {
@@ -168,12 +287,12 @@ body {
 .resume-content li {
   margin-bottom: 0.375rem;
   line-height: 1.6;
-  color: var(--muted-foreground);
+  color: var(--default-500);
 }
 
 .resume-content em {
   font-style: italic;
-  color: var(--accent);
+  color: var(--primary);
 }
 
 .resume-content strong {
@@ -182,13 +301,13 @@ body {
 }
 
 .resume-content a {
-  color: var(--accent);
+  color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .resume-content code {
-  background: var(--muted);
+  background: var(--default-100);
   padding: 0.125rem 0.375rem;
   border-radius: 4px;
   font-size: 0.875rem;
