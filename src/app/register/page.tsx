@@ -107,7 +107,7 @@ function RegisterForm() {
         className="w-full max-w-sm"
       >
         <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mx-auto mb-4">
+          <div className="w-12 h-12 rounded-[2rem] bg-secondary flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">创建账号</h1>
@@ -118,7 +118,7 @@ function RegisterForm() {
           <CardBody className="p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="text-sm text-danger bg-danger/10 rounded-xl px-4 py-2.5">
+                <div className="text-sm text-danger bg-danger/10 rounded-[2rem] px-4 py-2.5">
                   {error}
                 </div>
               )}
