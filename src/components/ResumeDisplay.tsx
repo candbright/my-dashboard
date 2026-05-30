@@ -37,6 +37,8 @@ interface ResumeDisplayProps {
   parsed: ParsedResume;
   /** Hide the floating back button */
   hideBackButton?: boolean;
+  /** Hide the ResumeVault footer */
+  hideFooter?: boolean;
 }
 
 // Map section titles to icons
@@ -50,20 +52,7 @@ function getSectionIcon(title: string) {
   return Briefcase;
 }
 
-// Get gradient for section
-function getSectionGradient(index: number): string {
-  const gradients = [
-    'from-indigo-500 to-purple-500',
-    'from-cyan-500 to-blue-500',
-    'from-emerald-500 to-teal-500',
-    'from-orange-500 to-amber-500',
-    'from-pink-500 to-rose-500',
-    'from-violet-500 to-fuchsia-500',
-  ];
-  return gradients[index % gradients.length];
-}
-
-export function ResumeDisplay({ resume, parsed, hideBackButton }: ResumeDisplayProps) {
+export function ResumeDisplay({ resume, parsed, hideBackButton, hideFooter }: ResumeDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const headerOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
@@ -92,8 +81,8 @@ export function ResumeDisplay({ resume, parsed, hideBackButton }: ResumeDisplayP
         >
           <Link
             href="/"
-            className="glass flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-              hover:shadow-lg transition-shadow duration-300"
+            className="bg-content1/95 backdrop-blur-md flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
+              hover:shadow-sm transition-shadow duration-500"
           >
             <ArrowLeft className="w-4 h-4" />
             返回
@@ -104,19 +93,21 @@ export function ResumeDisplay({ resume, parsed, hideBackButton }: ResumeDisplayP
       {/* Progress bar */}
       <motion.div
         style={{ scaleX: scrollYProgress }}
-        className="fixed top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-secondary origin-left z-50"
+        className="fixed top-0 left-0 right-0 h-0.5 bg-primary origin-left z-50"
       />
 
       {/* Hero Section */}
       <motion.section
         style={{ opacity: headerOpacity, scale: headerScale }}
-        className="relative overflow-hidden pt-24 pb-20"
+        className="relative overflow-hidden pt-24 pb-32"
       >
         {/* Animated background gradient */}
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary opacity-10 rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-secondary opacity-10 rounded-full blur-3xl" />
           <div className="absolute inset-0 dot-grid opacity-30" />
+          {/* Fade-to-background gradient at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-b from-transparent via-transparent to-background" />
         </div>
 
         <div className="relative max-w-4xl mx-auto px-6 text-center">
@@ -125,7 +116,7 @@ export function ResumeDisplay({ resume, parsed, hideBackButton }: ResumeDisplayP
             <FadeIn>
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="w-28 h-28 mx-auto mb-8 rounded-full overflow-hidden ring-4 ring-background shadow-2xl shadow-primary/10"
+                className="w-28 h-28 mx-auto mb-8 rounded-full overflow-hidden ring-4 ring-background shadow-sm shadow-primary/10"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -160,7 +151,7 @@ export function ResumeDisplay({ resume, parsed, hideBackButton }: ResumeDisplayP
                 <motion.div
                   key={label}
                   whileHover={{ y: -2 }}
-                  className="glass rounded-xl px-4 py-2.5 flex items-center gap-2 text-sm"
+                  className="bg-content1/95 backdrop-blur-md rounded-[2rem] px-4 py-2.5 flex items-center gap-2 text-sm"
                 >
                   <Icon className="w-4 h-4 text-primary" />
                   {href ? (
@@ -192,6 +183,7 @@ export function ResumeDisplay({ resume, parsed, hideBackButton }: ResumeDisplayP
       </div>
 
       {/* Footer */}
+      {!hideFooter && (
       <footer className="border-t border-default-200 py-8">
         <div className="max-w-4xl mx-auto px-6 text-center text-sm text-default-500">
           由{' '}
@@ -199,20 +191,20 @@ export function ResumeDisplay({ resume, parsed, hideBackButton }: ResumeDisplayP
           {' '}驱动
         </div>
       </footer>
+      )}
     </div>
   );
 }
 
 function SectionBlock({ section, index }: { section: ResumeSection; index: number }) {
   const Icon = getSectionIcon(section.title);
-  const gradient = getSectionGradient(index);
   const isSkills = section.title.toLowerCase().includes('skill') || section.title.toLowerCase().includes('tech') || section.title.includes('技能') || section.title.includes('技术');
 
   return (
     <section>
       {/* Section Header */}
       <div className="flex items-center gap-3 mb-8">
-        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+        <div className={`w-10 h-10 rounded-[2rem] bg-secondary flex items-center justify-center shadow-sm`}>
           <Icon className="w-5 h-5 text-white" />
         </div>
         <h2 className="text-2xl font-bold tracking-tight">{section.title}</h2>
@@ -251,15 +243,15 @@ function TimelineItem({ item, isLast }: { item: ResumeSectionItem; isLast: boole
     >
       {/* Timeline line */}
       {!isLast && (
-        <div className="absolute left-[11px] top-8 bottom-0 w-px bg-default-200 group-hover:bg-primary transition-colors duration-300" />
+        <div className="absolute left-[11px] top-8 bottom-0 w-px bg-default-200 group-hover:bg-primary transition-colors duration-500" />
       )}
 
       {/* Timeline dot */}
-      <div className="absolute left-0 top-2 w-[22px] h-[22px] rounded-full border-2 border-default-200 bg-content1 group-hover:border-primary transition-colors duration-300 flex items-center justify-center">
-        <div className="w-2 h-2 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute left-0 top-2 w-[22px] h-[22px] rounded-full border border-default-200 bg-content1 group-hover:border-primary transition-colors duration-500 flex items-center justify-center">
+        <div className="w-2 h-2 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       </div>
 
-      <div className="bg-content1 border border-default-200 rounded-xl p-5 hover:shadow-md hover:shadow-primary/5 transition-all duration-300">
+      <div className="bg-content1 border border-default-200 rounded-[2rem] p-5 hover:shadow-sm hover:shadow-primary/5 transition-all duration-500">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 mb-2">
           <div>
             <h3 className="font-semibold text-lg">{item.title}</h3>
@@ -329,8 +321,8 @@ function SkillsGrid({ section }: { section: ResumeSection }) {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: i * 0.03 }}
           whileHover={{ scale: 1.08, y: -2 }}
-          className="px-4 py-2 rounded-xl text-sm font-medium border border-default-200 bg-content1
-            hover:border-primary hover:shadow-md hover:shadow-primary/5 transition-all duration-200 cursor-default"
+          className="px-4 py-2 rounded-[2rem] text-sm font-medium border border-default-200 bg-content1
+            hover:border-primary hover:shadow-sm hover:shadow-primary/5 transition-all duration-500 cursor-default"
         >
           {skill}
         </motion.span>
