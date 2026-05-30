@@ -314,7 +314,7 @@ export function AISectionChat({
             exit={{ opacity: 0, y: -4, scaleY: 0.95 }}
             transition={{ duration: 0.18 }}
             style={{ transformOrigin: 'top right' }}
-            className="absolute top-full right-0 mt-2 w-[380px] bg-content1 border border-default-200 rounded-2xl shadow-xl flex flex-col z-30 max-h-[420px]"
+            className="absolute top-full right-0 mt-2 w-[380px] bg-content1 border border-default-200 rounded-[2rem] flex flex-col z-30 max-h-[420px]"
           >
             {/* Bubble arrow */}
             <div className="absolute -top-1.5 right-3 w-3 h-3 bg-content1 border-l border-t border-default-200 rotate-45" />
@@ -371,7 +371,7 @@ export function AISectionChat({
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[88%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                    className={`max-w-[88%] rounded-[2rem] px-3 py-2 text-xs leading-relaxed ${
                       msg.role === 'user'
                         ? 'bg-primary text-white rounded-br-sm'
                         : 'bg-default-100 text-foreground rounded-bl-sm'
@@ -437,7 +437,7 @@ export function AISectionChat({
                   placeholder="输入优化需求..."
                   rows={1}
                   className="flex-1 px-2.5 py-1.5 rounded-lg bg-background border border-default-200 text-xs
-                    focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary
+                    focus:outline-none focus:ring-1 focus:ring-primary/10 focus:border-primary
                     placeholder:text-default-400 resize-none transition-colors max-h-[60px]"
                   style={{ minHeight: '32px' }}
                   onInput={(e) => {

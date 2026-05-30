@@ -60,7 +60,7 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 rounded-xl hover:bg-default-100 transition-colors"
+            className="p-2 rounded-full hover:bg-default-100 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>

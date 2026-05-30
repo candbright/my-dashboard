@@ -97,7 +97,7 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
         width: '794px', // A4 width at 96dpi
         padding: '48px 56px',
         background: '#ffffff',
-        color: '#1a1a1a',
+        color: '#292524',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif',
         fontSize: '14px',
         lineHeight: '1.6',
@@ -116,7 +116,7 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
                 height: '80px',
                 borderRadius: '50%',
                 objectFit: 'cover',
-                border: '3px solid #e5e7eb',
+                border: '3px solid #d6d3d1',
                 margin: '0 auto',
                 display: 'block',
               }}
@@ -130,7 +130,7 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
           fontWeight: 700,
           letterSpacing: '-0.02em',
           margin: '0 0 6px 0',
-          color: '#111',
+          color: '#292524',
         }}>
           {frontmatter.name || resume.title}
         </h1>
@@ -140,7 +140,7 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
             fontSize: '16px',
             fontWeight: 500,
             margin: '0 0 16px 0',
-            color: '#006FEE',
+color: '#5c4033',
           }}>
             {frontmatter.title}
           </p>
@@ -153,11 +153,11 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
           justifyContent: 'center',
           gap: '12px 20px',
           fontSize: '13px',
-          color: '#555',
+          color: '#78716c',
         }}>
           {contactLinks.map(({ icon: Icon, value, label }) => (
             <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Icon style={{ width: '14px', height: '14px', color: '#006FEE', flexShrink: 0 } as React.CSSProperties} className="" />
+              <Icon style={{ width: '14px', height: '14px', color: '#5c4033', flexShrink: 0 } as React.CSSProperties} className="" />
               <span>{formatContactValue(value!, label)}</span>
             </span>
           ))}
@@ -165,7 +165,7 @@ export function ResumePrintView({ resume, parsed }: ResumePrintViewProps) {
       </div>
 
       {/* Divider */}
-      <hr style={{ border: 'none', borderTop: '1.5px solid #e5e7eb', margin: '0 0 28px 0' }} />
+      <hr style={{ border: 'none', borderTop: '1.5px solid #d6d3d1', margin: '0 0 28px 0' }} />
 
       {/* Sections */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -188,7 +188,7 @@ function PrintSection({ section, index }: { section: ResumeSection; index: numbe
         alignItems: 'center',
         gap: '10px',
         marginBottom: '12px',
-        borderBottom: '1px solid #e5e7eb',
+        borderBottom: '1px solid #d6d3d1',
         paddingBottom: '8px',
       }}>
         <h2 style={{
@@ -196,17 +196,17 @@ function PrintSection({ section, index }: { section: ResumeSection; index: numbe
           fontWeight: 700,
           letterSpacing: '-0.01em',
           margin: 0,
-          color: '#111',
-        }}>
-          {section.title}
+color: '#292524',
+         }}>
+           {section.title}
         </h2>
       </div>
 
       {/* Section content */}
       {section.content && !isSkills && (
         <p style={{
-          color: '#555',
-          lineHeight: '1.7',
+color: '#78716c',
+           lineHeight: '1.7',
           margin: '0 0 12px 0',
           fontSize: '14px',
         }}>
@@ -240,17 +240,17 @@ function PrintItem({ item }: { item: ResumeSectionItem }) {
         marginBottom: '4px',
       }}>
         <div>
-          <span style={{ fontWeight: 600, fontSize: '15px', color: '#222' }}>
+          <span style={{ fontWeight: 600, fontSize: '15px', color: '#292524' }}>
             {item.title}
           </span>
           {item.subtitle && (
-            <span style={{ color: '#006FEE', fontSize: '14px', fontWeight: 500, marginLeft: '8px' }}>
+            <span style={{ color: '#5c4033', fontSize: '14px', fontWeight: 500, marginLeft: '8px' }}>
               {item.subtitle}
             </span>
           )}
         </div>
         {item.date && (
-          <span style={{ fontSize: '13px', color: '#888', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          <span style={{ fontSize: '13px', color: '#a8a29e', whiteSpace: 'nowrap', flexShrink: 0 }}>
             {item.date}
           </span>
         )}
@@ -260,8 +260,8 @@ function PrintItem({ item }: { item: ResumeSectionItem }) {
         <ul style={{
           margin: '4px 0 0 0',
           paddingLeft: '18px',
-          color: '#555',
-          fontSize: '13px',
+color: '#78716c',
+           fontSize: '13px',
           lineHeight: '1.7',
         }}>
           {item.details.map((detail, i) => (
@@ -313,9 +313,9 @@ function PrintSkills({ section }: { section: ResumeSection }) {
             borderRadius: '8px',
             fontSize: '13px',
             fontWeight: 500,
-            border: '1px solid #e5e7eb',
+            border: '1px solid #d6d3d1',
             background: '#f9fafb',
-            color: '#333',
+            color: '#44403c',
           }}
         >
           {skill}
