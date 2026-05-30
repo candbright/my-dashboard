@@ -173,7 +173,7 @@ export default function SettingsAccountPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
     >
-      <h1 className="text-2xl font-bold tracking-tight mb-6">账号设置</h1>
+      <h1 className="text-2xl font-bold tracking-tight mb-6">账号</h1>
       <Divider className="mb-6" />
       {/* ── Username ── */}
       <Card variant="bordered" className="p-6 mb-6">
@@ -201,11 +201,11 @@ export default function SettingsAccountPage() {
 
       {/* ── Email ── */}
       <Card variant="bordered" className="p-6 mb-6">
-        <h2 className="text-sm font-semibold mb-1">绑定邮箱</h2>
+        <h2 className="text-sm font-semibold mb-1">邮箱</h2>
         <Divider className="my-3" />
         <div className="space-y-3 max-w-sm">
           <p className="text-sm text-default-500">
-            当前邮箱：<span className="text-foreground font-medium">{user.email}</span>
+            <span className="text-foreground font-medium">{user.email}</span>
           </p>
           <Input
             type="email"
@@ -242,14 +242,14 @@ export default function SettingsAccountPage() {
             isDisabled={!newEmail.trim() || !emailCode.trim()}
             startContent={emailSaved ? <Check className="w-4 h-4" /> : undefined}
           >
-            {emailSaved ? '已更新' : '更新邮箱'}
+            {emailSaved ? '已保存' : '保存'}
           </Button>
         </div>
       </Card>
 
       {/* ── Password ── */}
       <Card variant="bordered" className="p-6">
-        <h2 className="text-sm font-semibold mb-1">修改密码</h2>
+        <h2 className="text-sm font-semibold mb-1">密码</h2>
         <Divider className="my-3" />
         <div className="space-y-3 max-w-sm">
           <Input
@@ -281,7 +281,7 @@ export default function SettingsAccountPage() {
             isDisabled={!currentPassword || !newPassword}
             startContent={passwordSaved ? <Check className="w-4 h-4" /> : undefined}
           >
-            {passwordSaved ? '已更新' : '修改密码'}
+            {passwordSaved ? '已保存' : '保存'}
           </Button>
         </div>
       </Card>

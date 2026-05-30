@@ -8,7 +8,6 @@ import { AuthGuard } from '@/components/layout';
 const sidebarItems = [
   { href: '/admin/approvals', label: '审核管理' },
   { href: '/admin/users', label: '用户管理' },
-  { href: '/admin/settings', label: 'AI 全局配置' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
