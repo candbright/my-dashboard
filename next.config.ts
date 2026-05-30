@@ -54,7 +54,8 @@ const nextConfig: NextConfig = {
   async rewrites() {
     // Proxy ALL /api/:path* requests to the kratos backend.
     // This keeps all browser requests same-origin and avoids CORS entirely.
-    const target = process.env.NEXT_PUBLIC_API_URL;
+    // API_URL is for server-side (Docker internal), NEXT_PUBLIC_API_URL is for browser/client-side.
+    const target = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL;
     if (!target) return [];
     return [
       {
