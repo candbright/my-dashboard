@@ -66,6 +66,7 @@ export function ResumeCard({
       exit={{ opacity: 0 }}
       whileHover={{ y: -3 }}
       transition={{ duration: 0.25 }}
+      className="group"
     >
       <Card isHoverable className="h-full">
         <CardBody className="p-5">

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { ResumeCard } from '@/components/ResumeCard';
-import { StaggerContainer, StaggerItem, Spinner, EmptyState, Input, Button } from '@/components/ui';
+import { StaggerContainer, StaggerItem, Spinner, EmptyState, Input, Button, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
 import { PageContainer, AuthGuard } from '@/components/layout';
 import { Search, Plus, FileText } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +24,9 @@ function MyResumesContent() {
   const [resumes, setResumes] = useState<ResumeRecord[]>([]);
   const [loadingResumes, setLoadingResumes] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { toasts, addToast, removeToast } = useToast();
 
   useEffect(() => {
     setLoadingResumes(true);
@@ -45,18 +48,31 @@ function MyResumesContent() {
   });
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这份简历吗？')) return;
+    setDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
     try {
-      const res = await apiFetch(`/api/resumes/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/resumes/${deleteId}`, { method: 'DELETE' });
       if (res.ok) {
-        setResumes((prev) => prev.filter((r) => r.id !== id));
+        setResumes((prev) => prev.filter((r) => r.id !== deleteId));
+        addToast('success', '简历已删除');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        addToast('error', data.error || '删除失败');
       }
-    } catch (error) {
-      console.error('Failed to delete:', error);
+    } catch {
+      addToast('error', '网络错误，请重试');
+    } finally {
+      setDeleting(false);
+      setDeleteId(null);
     }
   };
 
   return (
+    <>
     <PageContainer
       title="我的"
       titleAccent="简历"
@@ -124,5 +140,17 @@ function MyResumesContent() {
         </AnimatePresence>
       )}
     </PageContainer>
-  );
+      <ConfirmModal
+        open={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={confirmDelete}
+        title="删除简历"
+        message="确定要删除这份简历吗？删除后不可恢复。"
+        confirmLabel="删除"
+        cancelLabel="取消"
+        danger
+        loading={deleting}
+      />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+    </>);
 }

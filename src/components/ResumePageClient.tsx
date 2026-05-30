@@ -8,6 +8,7 @@ import { ResumeEditor } from './ResumeEditor';
 import { ResumeSourceView } from './ResumeSourceView';
 import { ResumePrintView } from './ResumePrintView';
 import { usePdfExport } from '@/hooks/usePdfExport';
+import { ConfirmModal, useToast, ToastContainer } from '@/components/ui';
 import Link from 'next/link';
 import type { ResumeRecord } from '@/lib/types';
 import type { ParsedResume } from '@/lib/resume-parser';
@@ -58,6 +59,9 @@ export function ResumePageClient({
   const [editMarkdown, setEditMarkdown] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [viewStyle, setViewStyle] = useState<ViewStyle>('parsed');
+  const [showVisibilityConfirm, setShowVisibilityConfirm] = useState(false);
+  const [visibilityTarget, setVisibilityTarget] = useState<'public' | 'private' | null>(null);
+  const { toasts, addToast, removeToast } = useToast();
   const { exportPdf, exporting } = usePdfExport();
 
   // Re-fetch permissions on client side using the localStorage token.
@@ -103,30 +107,35 @@ export function ResumePageClient({
     }
   }, [exportPdf, resume, parsed]);
 
-  const handleToggleVisibility = useCallback(async () => {
+  const handleToggleVisibility = useCallback(() => {
     const newVisibility = resume.visibility === 'public' ? 'private' : 'public';
-    const confirmMsg = newVisibility === 'public'
-      ? (permissions.is_admin ? '直接设为公开？' : '申请公开此简历？')
-      : '设为私人？';
-    if (!confirm(confirmMsg)) return;
+    setVisibilityTarget(newVisibility);
+    setShowVisibilityConfirm(true);
+  }, [resume.visibility]);
 
+  const confirmVisibility = useCallback(async () => {
+    if (!visibilityTarget) return;
+    setShowVisibilityConfirm(false);
     setChangingVisibility(true);
     try {
       const res = await apiFetch(`/api/resumes/${resume.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ visibility: newVisibility }),
+        body: JSON.stringify({ visibility: visibilityTarget }),
       });
-
       if (res.ok) {
         const data = await res.json();
         setResume(data.resume);
+        addToast('success', visibilityTarget === 'public' ? '简历已公开' : '简历已设为私人');
+      } else {
+        addToast('error', '操作失败');
       }
     } catch {
-      // error silenced
+      addToast('error', '网络错误');
     } finally {
       setChangingVisibility(false);
+      setVisibilityTarget(null);
     }
-  }, [resume, permissions.is_admin]);
+  }, [visibilityTarget, resume.id, addToast]);
 
   const handleEditSave = useCallback(async () => {
     if (!editMarkdown || editSaving) return;
@@ -141,6 +150,7 @@ export function ResumePageClient({
   const btnClass = "p-2 rounded-lg bg-content1 border border-default-200 hover:border-primary transition-colors disabled:opacity-50";
 
   return (
+    <>
     <div className="relative">
       {/* Floating top-right nav bar */}
       <motion.div
@@ -150,7 +160,7 @@ export function ResumePageClient({
         transition={{ delay: mode === 'edit' ? 0.1 : 0.5, duration: 0.3 }}
         className="fixed top-20 right-6 z-50"
       >
-        <div className="glass rounded-2xl px-4 py-2.5 flex items-center gap-1.5 shadow-xl border border-default-200">
+        <div className="bg-content1/95 backdrop-blur-md rounded-[2rem] px-4 py-2.5 flex items-center gap-1.5 border border-default-200">
           {/* ── Edit mode: save + back ── */}
           {mode === 'edit' && (
             <>
@@ -223,7 +233,7 @@ export function ResumePageClient({
               <ResumeDisplay resume={resume} parsed={parsed} hideBackButton />
             ) : (
               <div className="flex justify-center py-12 px-4">
-                <div className="shadow-2xl rounded-lg overflow-hidden border border-default-200">
+                <div className="rounded-lg overflow-hidden border border-default-200">
                   <ResumePrintView resume={resume} parsed={parsed} />
                 </div>
               </div>
@@ -245,5 +255,18 @@ export function ResumePageClient({
         )}
       </AnimatePresence>
     </div>
-  );
+    <ConfirmModal
+      open={showVisibilityConfirm}
+      onClose={() => setShowVisibilityConfirm(false)}
+      onConfirm={confirmVisibility}
+      title={visibilityTarget === 'public' ? (permissions.is_admin ? '设为公开' : '申请公开') : '设为私人'}
+      message={visibilityTarget === 'public'
+        ? (permissions.is_admin ? '确定要将此简历设为公开吗？' : '确定要申请公开此简历吗？')
+        : '确定要将此简历设为私人吗？'}
+      confirmLabel="确认"
+      cancelLabel="取消"
+      loading={changingVisibility}
+    />
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
+  </>);
 }
