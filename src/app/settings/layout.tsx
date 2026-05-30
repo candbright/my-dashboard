@@ -5,9 +5,19 @@ import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AuthGuard } from '@/components/layout';
 
-const sidebarItems = [
-  { href: '/settings', label: '账号设置' },
-  { href: '/settings/ai', label: 'AI-API 设置' },
+const sidebarSections = [
+  {
+    title: '通用',
+    items: [
+      { href: '/settings', label: '账号' },
+    ],
+  },
+  {
+    title: 'API',
+    items: [
+      { href: '/settings/ai', label: 'API 配置' },
+    ],
+  },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
@@ -23,26 +33,34 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
           transition={{ duration: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
           className="w-44 shrink-0"
         >
-          <h2 className="text-sm font-semibold text-default-500 mb-3 px-3">设置</h2>
-          <nav className="space-y-0.5">
-            {sidebarItems.map((item) => {
-              const isActive = item.href === '/settings'
-                ? pathname === '/settings'
-                : pathname === item.href || pathname.startsWith(item.href + '/');
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`relative block px-3 py-2 rounded-lg text-sm transition-colors ${
-                    isActive
-                      ? 'text-foreground font-medium bg-default-100'
-                      : 'text-default-500 hover:text-foreground hover:bg-default-100/50'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+          <nav className="space-y-4">
+            {sidebarSections.map((section) => (
+              <div key={section.title}>
+                <h2 className="text-xs font-semibold text-default-400 uppercase tracking-wider mb-2 px-3">
+                  {section.title}
+                </h2>
+                <div className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const isActive = item.href === '/settings'
+                      ? pathname === '/settings'
+                      : pathname === item.href || pathname.startsWith(item.href + '/');
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`relative block px-3 py-2 rounded-lg text-sm transition-colors ${
+                          isActive
+                            ? 'text-foreground font-medium bg-default-100'
+                            : 'text-default-500 hover:text-foreground hover:bg-default-100/50'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
         </motion.aside>
 

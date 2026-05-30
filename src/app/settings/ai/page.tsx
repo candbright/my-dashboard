@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, ExternalLink, Zap, CheckCircle2, XCircle, Trash2, Info } from 'lucide-react';
+import { Check, ExternalLink, Zap, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
-import { Button, Input, Select, Spinner, Divider, Card, Chip } from '@/components/ui';
+import { Button, Input, Select, Spinner, Divider, Card, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
 
 type AIProvider = 'deepseek' | 'openai' | 'qwen' | 'zhipu' | 'moonshot' | 'custom';
 
@@ -79,9 +79,6 @@ function initProviderStates(): Record<AIProvider, ProviderState> {
 export default function UserAISettingsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [aiEnabled, setAiEnabled] = useState(false);
-  const [adminConfigured, setAdminConfigured] = useState(false);
-  const [adminProvider, setAdminProvider] = useState<string>('');
   const [hasCustomConfig, setHasCustomConfig] = useState(false);
 
   const [activeProvider, setActiveProvider] = useState<AIProvider>('deepseek');
@@ -96,7 +93,9 @@ export default function UserAISettingsPage() {
   const [saved, setSaved] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toasts, addToast, removeToast } = useToast();
 
   // Test connection state
   const [testing, setTesting] = useState(false);
@@ -109,15 +108,6 @@ export default function UserAISettingsPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      // Check AI config status
-      apiFetch('/api/ai/config')
-        .then((res) => res.json())
-        .then((data) => {
-          setAiEnabled(data.ai_enabled || isAdmin);
-          setAdminConfigured(data.configured);
-        })
-        .catch(() => {});
-
       // Load user's custom AI config
       apiFetch('/api/user/ai-config')
         .then((res) => {
@@ -130,8 +120,6 @@ export default function UserAISettingsPage() {
         })
         .then((data) => {
           if (!data) return;
-          setAdminConfigured(data.adminConfigured ?? false);
-          setAdminProvider(data.adminProvider ?? '');
           setHasCustomConfig(data.hasCustomConfig ?? false);
 
           if (data.hasCustomConfig && data.providers) {
@@ -283,8 +271,7 @@ export default function UserAISettingsPage() {
   };
 
   const handleDeleteConfig = async () => {
-    if (!confirm('确定要删除自定义 AI 配置吗？删除后将使用管理员全局配置。')) return;
-
+    setShowDeleteConfirm(false);
     setDeleting(true);
     setError(null);
 
@@ -298,8 +285,11 @@ export default function UserAISettingsPage() {
       setProviderStates(initProviderStates());
       setActiveProvider('deepseek');
       setSelectedTab('deepseek');
+      addToast('success', 'API 配置已删除');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '删除失败');
+      const msg = err instanceof Error ? err.message : '删除失败';
+      setError(msg);
+      addToast('error', msg);
     } finally {
       setDeleting(false);
     }
@@ -313,67 +303,23 @@ export default function UserAISettingsPage() {
     );
   }
 
-  // AI not enabled for this user
-  if (!aiEnabled && !isAdmin) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
-      >
-        <h1 className="text-2xl font-bold tracking-tight mb-6">AI-API 设置</h1>
-        <Divider className="mb-6" />
-        <Card variant="bordered" className="p-6">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-default-400 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm text-default-600">
-                AI 功能未启用。请联系管理员开启您的 AI 使用权限。
-              </p>
-            </div>
-          </div>
-        </Card>
-      </motion.div>
-    );
-  }
-
   const currentPreset = AI_PROVIDERS[selectedTab];
   const currentState = providerStates[selectedTab];
   const isActive = selectedTab === activeProvider;
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
     >
-      <h1 className="text-2xl font-bold tracking-tight mb-2">AI-API 设置</h1>
+      <h1 className="text-2xl font-bold tracking-tight mb-2">API 设置</h1>
       <p className="text-sm text-default-500 mb-6">
-        自定义 AI 配置以覆盖管理员全局配置。不配置则使用管理员提供的 AI 服务。
+        配置 API Key 以启用 AI 功能。
       </p>
 
       <Divider className="mb-6" />
-
-      {/* Admin config status */}
-      <div className="mb-6 flex items-center gap-2 flex-wrap">
-        <Chip
-          variant="flat"
-          color={adminConfigured ? 'success' : 'default'}
-          size="sm"
-        >
-          管理员配置: {adminConfigured ? '已配置' : '未配置'}
-        </Chip>
-        {adminProvider && (
-          <Chip variant="flat" size="sm" color="primary">
-            管理员当前: {AI_PROVIDERS[adminProvider as AIProvider]?.name || adminProvider}
-          </Chip>
-        )}
-        {hasCustomConfig && (
-          <Chip variant="flat" size="sm" color="secondary">
-            已自定义配置
-          </Chip>
-        )}
-      </div>
 
       {/* Provider Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -536,7 +482,7 @@ export default function UserAISettingsPage() {
               onClick={handleSetActive}
               isLoading={switching}
             >
-              设为当前使用
+              启用
             </Button>
           )}
         </div>
@@ -548,15 +494,27 @@ export default function UserAISettingsPage() {
               variant="light"
               color="danger"
               size="sm"
-              onClick={handleDeleteConfig}
-              isLoading={deleting}
+                onClick={() => setShowDeleteConfirm(true)}
+                isLoading={deleting}
               startContent={<Trash2 className="w-4 h-4" />}
             >
-              删除自定义配置（恢复使用管理员配置）
+              删除 API 配置
             </Button>
           </div>
         )}
       </div>
     </motion.div>
-  );
+    <ConfirmModal
+      open={showDeleteConfirm}
+      onClose={() => setShowDeleteConfirm(false)}
+      onConfirm={handleDeleteConfig}
+      title="删除 API 配置"
+      message="确定要删除 API 配置吗？删除后将无法使用 AI 功能。"
+      confirmLabel="删除"
+      cancelLabel="取消"
+      danger
+      loading={deleting}
+    />
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
+  </>);
 }
