@@ -27,8 +27,8 @@ const sizeMap: Record<InputSize, string> = {
 
 const variantMap: Record<InputVariant, string> = {
   flat: 'bg-default-100 hover:bg-default-200 border-transparent',
-  bordered: 'bg-transparent border-2 border-default-200 hover:border-default-400',
-  underlined: 'bg-transparent border-b-2 border-default-200 hover:border-default-400 rounded-none px-0',
+  bordered: 'bg-transparent border border-default-200 hover:border-default-300',
+  underlined: 'bg-transparent border-b border-default-200 hover:border-default-300 rounded-none px-0',
 };
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -63,11 +63,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div
           className={cn(
-            'relative flex items-center rounded-xl transition-all duration-200',
+            'relative flex items-center rounded-full transition-all duration-500',
             variantMap[variant],
             sizeMap[inputSize],
             hasError && 'border-danger hover:border-danger',
-            'focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20',
+            'focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10',
             hasError && 'focus-within:border-danger focus-within:ring-danger/20',
           )}
         >

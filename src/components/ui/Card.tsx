@@ -24,13 +24,13 @@ function Card({
   return (
     <div
       className={cn(
-        'rounded-2xl transition-all duration-200',
-        variant === 'bordered' && 'bg-content1 border border-default-200',
-        variant === 'shadow' && 'bg-content1 shadow-md',
+        'rounded-[2rem] transition-all duration-500',
+        variant === 'bordered' && 'bg-content1 border border-stone-200',
+        variant === 'shadow' && 'bg-content1 shadow-sm',
         variant === 'flat' && 'bg-content2',
         isBlurred && 'backdrop-blur-xl bg-content1/70',
-        isHoverable && 'hover:shadow-lg hover:-translate-y-0.5',
-        isPressable && 'cursor-pointer active:scale-[0.98]',
+        isHoverable && 'hover:shadow-sm hover:bg-content2',
+        isPressable && 'cursor-pointer active:scale-[0.99]',
         fullWidth && 'w-full',
         className
       )}

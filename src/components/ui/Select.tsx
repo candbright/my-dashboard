@@ -27,10 +27,10 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={id}
           className={cn(
-            'h-10 rounded-xl px-3 text-sm transition-all duration-200',
-            'bg-transparent border-2 border-default-200 hover:border-default-400',
+            'h-10 rounded-full px-3 text-sm transition-all duration-500',
+            'bg-transparent border border-default-200 hover:border-default-300',
             'text-foreground outline-none',
-            'focus:border-primary focus:ring-2 focus:ring-primary/20',
+            'focus:border-primary/60 focus:ring-2 focus:ring-primary/10',
             errorMessage && 'border-danger',
             className
           )}
