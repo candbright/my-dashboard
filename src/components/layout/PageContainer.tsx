@@ -35,11 +35,11 @@ function PageContainer({
 }: PageContainerProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
+      transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
       className={cn(
-        'mx-auto px-6 py-6',
+        'mx-auto px-6 pt-20 pb-6',
         maxWidthMap[maxWidth],
         className
       )}
@@ -48,11 +48,11 @@ function PageContainer({
         <div className="flex items-center justify-between mb-5">
           <div>
             {title && (
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              <h1 className="text-2xl font-bold tracking-tight font-serif text-foreground">
                 {titleAccent ? (
                   <>
                     {title}
-                    <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    <span className="gradient-text">
                       {titleAccent}
                     </span>
                   </>
@@ -62,7 +62,7 @@ function PageContainer({
               </h1>
             )}
             {subtitle && (
-              <p className="text-sm text-default-500 mt-1">{subtitle}</p>
+              <p className="text-sm text-default-500 font-serif mt-1">{subtitle}</p>
             )}
           </div>
           {action}
