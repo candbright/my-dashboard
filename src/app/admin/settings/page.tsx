@@ -438,7 +438,7 @@ export default function AdminSettingsPage() {
               onClick={handleSetActive}
               isLoading={switching}
             >
-              设为当前使用
+              启用
             </Button>
           )}
         </div>

@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Button, Card, Chip, Spinner } from '@/components/ui';
+import { Button, Card, Chip, Spinner, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
 
 interface UserItem {
   id: string;
@@ -24,6 +24,8 @@ export default function UsersPage() {
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [updatingAI, setUpdatingAI] = useState<string | null>(null);
+  const [roleChangeTarget, setRoleChangeTarget] = useState<{ userId: string; newRole: 'admin' | 'user' } | null>(null);
+  const { toasts, addToast, removeToast } = useToast();
 
   useEffect(() => {
     if (!authLoading && isAdmin) {
@@ -35,9 +37,15 @@ export default function UsersPage() {
     }
   }, [authLoading, isAdmin]);
 
-  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user') => {
+  const handleRoleChange = (userId: string, newRole: 'admin' | 'user') => {
     if (userId === currentUser?.id) return;
-    if (!confirm(newRole === 'admin' ? '设为管理员？' : '降为普通用户？')) return;
+    setRoleChangeTarget({ userId, newRole });
+  };
+
+  const confirmRoleChange = async () => {
+    if (!roleChangeTarget) return;
+    const { userId, newRole } = roleChangeTarget;
+    setRoleChangeTarget(null);
 
     setUpdating(userId);
     try {
@@ -50,9 +58,12 @@ export default function UsersPage() {
         setUsers((prev) =>
           prev.map((u) => (u.id === userId ? { ...u, role: data.user.role } : u))
         );
+        addToast('success', newRole === 'admin' ? '已设为管理员' : '已降为普通用户');
+      } else {
+        addToast('error', '操作失败');
       }
     } catch {
-      // silent
+      addToast('error', '网络错误');
     } finally {
       setUpdating(null);
     }
@@ -89,6 +100,7 @@ export default function UsersPage() {
   if (!isAdmin) return null;
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
@@ -168,5 +180,16 @@ export default function UsersPage() {
         </table>
       </Card>
     </motion.div>
-  );
+    <ConfirmModal
+      open={roleChangeTarget !== null}
+      onClose={() => setRoleChangeTarget(null)}
+      onConfirm={confirmRoleChange}
+      title={roleChangeTarget?.newRole === 'admin' ? '设为管理员' : '降为普通用户'}
+      message={roleChangeTarget?.newRole === 'admin' ? '确定要将此用户设为管理员吗？' : '确定要将此管理员降为普通用户吗？'}
+      confirmLabel="确认"
+      cancelLabel="取消"
+      loading={updating === roleChangeTarget?.userId}
+    />
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
+  </>);
 }
