@@ -30,7 +30,7 @@ export function usePdfExport() {
       container.style.left = '-9999px';
       container.style.top = '0';
       container.style.zIndex = '-1';
-      container.style.background = '#ffffff';
+      container.style.background = '#faf6f1';
       document.body.appendChild(container);
       containerRef.current = container;
 
@@ -56,7 +56,7 @@ export function usePdfExport() {
         scale: 2, // High quality
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#faf6f1',
         logging: false,
       });
 

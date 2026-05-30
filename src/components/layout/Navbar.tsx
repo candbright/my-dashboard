@@ -41,16 +41,16 @@ export function Navbar() {
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: [0.25, 0.4, 0.25, 1] }}
-      className="sticky top-0 z-50 glass border-b border-default-200"
+      className="sticky top-0 z-50 bg-content1/95 backdrop-blur-md border-b border-default-200"
     >
       <nav className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-lg tracking-tight">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <span className="text-white text-sm font-bold">R</span>
           </div>
           <span>
-            Resume<span className="gradient-text">Vault</span>
+            Resume<span className="text-primary">Vault</span>
           </span>
         </Link>
 
@@ -66,7 +66,7 @@ export function Navbar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+                    'relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-500',
                     isActive
                       ? 'text-primary bg-primary/10'
                       : 'text-default-500 hover:text-foreground hover:bg-default-100'

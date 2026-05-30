@@ -1,117 +1,121 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────
-   HeroUI-inspired Design Tokens
+   Natural Organic Design Tokens
+   StyleKit — 自然有机风 (Natural Organic)
    ───────────────────────────────────────────────────── */
 
 :root {
-  /* Background */
-  --background: #ffffff;
-  --foreground: #11181c;
+  /* Background & Foreground */
+  --background: #faf6f1;
+  --foreground: #292524; /* stone-800 */
 
-  /* Content surfaces */
-  --content1: #ffffff;
-  --content2: #f4f4f5;
-  --content3: #e4e4e7;
+  /* Content surfaces (organic cream progression) */
+  --content1: #faf6f1;
+  --content2: #f2ece4;
+  --content3: #e9e0d4;
 
-  /* Default (neutral) */
-  --default-50: #fafafa;
-  --default-100: #f4f4f5;
-  --default-200: #e4e4e7;
-  --default-300: #d4d4d8;
-  --default-400: #a1a1aa;
-  --default-500: #71717a;
-  --default-600: #52525b;
-  --default-700: #3f3f46;
-  --default-800: #27272a;
-  --default-900: #18181b;
+  /* Default (warm neutral / stone scale) */
+  --default-50: #fafaf9;
+  --default-100: #f5f5f4;
+  --default-200: #e7e5e4;
+  --default-300: #d6d3d1;
+  --default-400: #a8a29e;
+  --default-500: #78716c;
+  --default-600: #57534e;
+  --default-700: #44403c;
+  --default-800: #292524;
+  --default-900: #1c1917;
 
-  /* Primary (HeroUI Blue) */
-  --primary: #006FEE;
-  --primary-foreground: #ffffff;
-  --primary-50: #e6f1fe;
-  --primary-100: #cce3fd;
-  --primary-200: #99c7fb;
-  --primary-300: #66aaf9;
-  --primary-400: #338ef7;
-  --primary-500: #006FEE;
-  --primary-600: #005bc4;
-  --primary-700: #004493;
-  --primary-800: #002e62;
-  --primary-900: #001731;
+  /* Primary (Warm Stone Brown) */
+  --primary: #5c4033;
+  --primary-foreground: #faf6f1;
+  --primary-50: #f7f2ee;
+  --primary-100: #ede3d9;
+  --primary-200: #dcc7b5;
+  --primary-300: #c9a88d;
+  --primary-400: #b68b6a;
+  --primary-500: #a0704d;
+  --primary-600: #8b5b3d;
+  --primary-700: #6e4630;
+  --primary-800: #5c4033;
+  --primary-900: #3b2820;
 
-  /* Secondary (Purple) */
-  --secondary: #7828c8;
-  --secondary-foreground: #ffffff;
+  /* Secondary (Sage Green) */
+  --secondary: #8b9d77;
+  --secondary-foreground: #faf6f1;
 
-  /* Success */
-  --success: #17c964;
-  --success-foreground: #ffffff;
+  /* Success (Forest Green) */
+  --success: #557A46;
+  --success-foreground: #faf6f1;
 
-  /* Warning */
-  --warning: #f5a524;
-  --warning-foreground: #000000;
+  /* Warning (Warm Amber) */
+  --warning: #C28A2E;
+  --warning-foreground: #292524;
 
-  /* Danger */
-  --danger: #f31260;
-  --danger-foreground: #ffffff;
+  /* Danger (Muted Red / Burgundy) */
+  --danger: #A64B45;
+  --danger-foreground: #faf6f1;
 
   /* Focus ring */
   --focus: var(--primary);
 
-  /* Gradient */
-  --gradient-start: #006FEE;
-  --gradient-end: #7828c8;
+  /* Gradient (brown → sage green) */
+  --gradient-start: #5c4033;
+  --gradient-end: #8b9d77;
+
+  /* Organic radius */
+  --radius: 1.5rem;
 }
 
-/* ─────── Dark Mode ─────── */
+/* ─────── Dark Mode (Deep Earth) ─────── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #000000;
-    --foreground: #ecedee;
+    --background: #1c1917;
+    --foreground: #faf6f1;
 
-    --content1: #18181b;
-    --content2: #27272a;
-    --content3: #3f3f46;
+    --content1: #292524;
+    --content2: #1c1917;
+    --content3: #44403c;
 
-    --default-50: #18181b;
-    --default-100: #27272a;
-    --default-200: #3f3f46;
-    --default-300: #52525b;
-    --default-400: #71717a;
-    --default-500: #a1a1aa;
-    --default-600: #d4d4d8;
-    --default-700: #e4e4e7;
-    --default-800: #f4f4f5;
-    --default-900: #fafafa;
+    --default-50: #1c1917;
+    --default-100: #292524;
+    --default-200: #44403c;
+    --default-300: #57534e;
+    --default-400: #78716c;
+    --default-500: #a8a29e;
+    --default-600: #d6d3d1;
+    --default-700: #e7e5e4;
+    --default-800: #f5f5f4;
+    --default-900: #fafaf9;
 
-    --primary: #338ef7;
-    --primary-foreground: #ffffff;
-    --primary-50: #001731;
-    --primary-100: #002e62;
-    --primary-200: #004493;
-    --primary-300: #005bc4;
-    --primary-400: #006FEE;
-    --primary-500: #338ef7;
-    --primary-600: #66aaf9;
-    --primary-700: #99c7fb;
-    --primary-800: #cce3fd;
-    --primary-900: #e6f1fe;
+    --primary: #8b9d77;
+    --primary-foreground: #1c1917;
+    --primary-50: #1d2418;
+    --primary-100: #2a3524;
+    --primary-200: #384730;
+    --primary-300: #495c3e;
+    --primary-400: #5c724e;
+    --primary-500: #708a61;
+    --primary-600: #8b9d77;
+    --primary-700: #a3b294;
+    --primary-800: #c2ccb8;
+    --primary-900: #e2e7dc;
 
-    --secondary: #9353d3;
-    --secondary-foreground: #ffffff;
+    --secondary: #d4a373;
+    --secondary-foreground: #1c1917;
 
-    --success: #45d483;
-    --success-foreground: #000000;
+    --success: #557A46;
+    --success-foreground: #faf6f1;
 
-    --warning: #f7b750;
-    --warning-foreground: #000000;
+    --warning: #C28A2E;
+    --warning-foreground: #1c1917;
 
-    --danger: #f54180;
-    --danger-foreground: #ffffff;
+    --danger: #A64B45;
+    --danger-foreground: #faf6f1;
 
-    --gradient-start: #338ef7;
-    --gradient-end: #9353d3;
+    --gradient-start: #8b9d77;
+    --gradient-end: #d4a373;
   }
 }
 
@@ -173,7 +177,13 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Scrollbar */
+/* Organic heading defaults */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif, Georgia, "Times New Roman", serif);
+  letter-spacing: -0.01em;
+}
+
+/* Scrollbar — warm stone */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -191,22 +201,27 @@ body {
 
 /* ─────── Utility Classes ─────── */
 
-/* Glass morphism */
+/* Paper texture overlay (Natural Organic signature) */
+.organic-texture {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+}
+
+/* Organic frosted (replaces .glass) */
 .glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(250, 246, 241, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(139, 157, 119, 0.15);
 }
 
 @media (prefers-color-scheme: dark) {
   .glass {
-    background: rgba(24, 24, 27, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(41, 37, 36, 0.85);
+    border: 1px solid rgba(139, 157, 119, 0.12);
   }
 }
 
-/* Gradient text */
+/* Gradient text (brown → sage green) */
 .gradient-text {
   background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
   -webkit-background-clip: text;
@@ -231,32 +246,55 @@ body {
   pointer-events: none;
 }
 
-/* Glow */
+/* Organic warm glow (replaces .glow-primary) */
 .glow-primary {
-  box-shadow: 0 0 40px rgba(0, 111, 238, 0.15);
+  box-shadow: 0 0 40px rgba(92, 64, 51, 0.1);
 }
 
 @media (prefers-color-scheme: dark) {
   .glow-primary {
-    box-shadow: 0 0 40px rgba(51, 142, 247, 0.15);
+    box-shadow: 0 0 40px rgba(139, 157, 119, 0.12);
   }
 }
 
-/* Dot grid background */
+/* Dot grid background (warm stone version) */
 .dot-grid {
   background-image: radial-gradient(circle, var(--default-300) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* Upload dropzone */
+/* Upload dropzone (sage green accent) */
 .dropzone-active {
-  border-color: var(--primary);
-  background: rgba(0, 111, 238, 0.08);
+  border-color: var(--secondary);
+  background: rgba(139, 157, 119, 0.08);
 }
 
-/* ─────── Resume Display ─────── */
+/* ─────── Natural Organic Animations ─────── */
+
+@keyframes organic-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes organic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.organic-animate-in {
+  animation: organic-fade-in 0.5s ease-out both;
+}
+
+/* ─────── Resume Content Display ─────── */
 
 .resume-content h2 {
+  font-family: var(--font-serif, Georgia, "Times New Roman", serif);
   font-size: 1.5rem;
   font-weight: 700;
   margin-top: 2rem;
@@ -266,6 +304,7 @@ body {
 }
 
 .resume-content h3 {
+  font-family: var(--font-serif, Georgia, "Times New Roman", serif);
   font-size: 1.125rem;
   font-weight: 600;
   margin-top: 1.25rem;
