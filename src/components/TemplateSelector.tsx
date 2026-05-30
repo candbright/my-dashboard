@@ -19,12 +19,12 @@ interface TemplateSelectorProps {
 }
 
 const ACCENT_COLORS: Record<string, string> = {
-  primary: 'border-primary bg-primary/5 shadow-primary/10',
-  secondary: 'border-secondary bg-secondary/5 shadow-secondary/10',
-  success: 'border-success bg-success/5 shadow-success/10',
-  warning: 'border-warning bg-warning/5 shadow-warning/10',
-  danger: 'border-danger bg-danger/5 shadow-danger/10',
-  default: 'border-default-300 bg-default-50 shadow-default/10',
+  primary: 'border-primary bg-primary/5',
+  secondary: 'border-secondary bg-secondary/5',
+  success: 'border-success bg-success/5',
+  warning: 'border-warning bg-warning/5',
+  danger: 'border-danger bg-danger/5',
+  default: 'border-default-300 bg-default-50',
 };
 
 const ACCENT_ICON_BG: Record<string, string> = {
@@ -50,9 +50,9 @@ export function TemplateSelector({ onSelect, selectedId }: TemplateSelectorProps
         <button
           onClick={() => setActiveCategory('all')}
           className={cn(
-            'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+            'px-4 py-2 rounded-full text-sm font-medium transition-all duration-500',
             activeCategory === 'all'
-              ? 'bg-primary text-white shadow-md shadow-primary/20'
+              ? 'bg-primary text-white shadow-sm shadow-primary/20'
               : 'bg-default-100 text-default-600 hover:bg-default-200'
           )}
         >
@@ -63,9 +63,9 @@ export function TemplateSelector({ onSelect, selectedId }: TemplateSelectorProps
             key={cat.key}
             onClick={() => setActiveCategory(cat.key)}
             className={cn(
-              'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+              'px-4 py-2 rounded-full text-sm font-medium transition-all duration-500',
               activeCategory === cat.key
-                ? 'bg-primary text-white shadow-md shadow-primary/20'
+                ? 'bg-primary text-white shadow-sm shadow-primary/20'
                 : 'bg-default-100 text-default-600 hover:bg-default-200'
             )}
           >
@@ -95,10 +95,10 @@ export function TemplateSelector({ onSelect, selectedId }: TemplateSelectorProps
                 whileTap={{ scale: 0.97 }}
                 onClick={() => onSelect(template)}
                 className={cn(
-                  'relative text-left rounded-2xl border-2 p-5 transition-all duration-200',
+                  'relative text-left rounded-[2rem] border p-5 transition-all duration-500',
                   isSelected
-                    ? `${accentClass} shadow-lg ring-2 ring-primary/30`
-                    : 'border-default-200 bg-content1 hover:border-default-300 hover:shadow-md'
+                    ? `${accentClass} ring-2 ring-primary/30`
+                    : 'border-default-200 bg-content1 hover:border-default-300'
                 )}
               >
                 {/* Selected indicator */}
@@ -113,7 +113,7 @@ export function TemplateSelector({ onSelect, selectedId }: TemplateSelectorProps
                 )}
 
                 {/* Icon */}
-                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center mb-3', iconBgClass)}>
+                <div className={cn('w-10 h-10 rounded-[2rem] flex items-center justify-center mb-3', iconBgClass)}>
                   {template.id === 'blank' ? (
                     <FileText className="w-5 h-5" />
                   ) : (

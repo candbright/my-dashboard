@@ -505,7 +505,7 @@ export function AIUpload() {
     return (
       <div className="w-full max-w-xl mx-auto">
         <Card variant="bordered" className="p-8 border-warning/30 bg-warning/5 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-warning/10 flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 rounded-[2rem] bg-warning/10 flex items-center justify-center mx-auto mb-4">
             <Settings className="w-6 h-6 text-warning" />
           </div>
           <h3 className="text-lg font-semibold mb-2">需要配置 API Key</h3>
@@ -576,7 +576,7 @@ export function AIUpload() {
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`cursor-pointer border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300
+                    className={`cursor-pointer border border-dashed rounded-[2rem] p-12 text-center transition-all duration-500
                       ${isDragging
                         ? 'border-primary bg-primary/5 scale-[1.02]'
                         : 'border-default-300 hover:border-primary hover:bg-primary/5'
@@ -593,7 +593,7 @@ export function AIUpload() {
                       animate={isDragging ? { scale: 1.15, y: -5 } : { scale: 1, y: 0 }}
                       className="flex flex-col items-center gap-4"
                     >
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center opacity-80">
+                      <div className="w-16 h-16 rounded-[2rem] bg-secondary flex items-center justify-center opacity-80">
                         <Sparkles className="w-7 h-7 text-white" />
                       </div>
                       <div>
@@ -607,9 +607,9 @@ export function AIUpload() {
                     </motion.div>
                   </div>
                 ) : (
-                  <div className="border border-default-200 rounded-2xl p-5">
+                  <div className="border border-default-200 rounded-[2rem] p-5">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-[2rem] bg-primary/10 flex items-center justify-center">
                         <FileText className="w-6 h-6 text-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -634,9 +634,9 @@ export function AIUpload() {
                 onChange={(e) => setPasteText(e.target.value)}
                 placeholder={"将简历内容粘贴到这里，支持任意格式的简历文本，AI 会自动识别并转换。"}
                 rows={12}
-                className="w-full px-4 py-3 rounded-2xl border border-default-200 bg-content1 text-sm
-                  focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
-                  placeholder:text-default-400 transition-all duration-200 resize-none font-mono leading-relaxed"
+                className="w-full px-4 py-3 rounded-[2rem] border border-default-200 bg-content1 text-sm
+                  focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-transparent
+                  placeholder:text-default-400 transition-all duration-500 resize-none font-mono leading-relaxed"
               />
             )}
 
@@ -722,7 +722,7 @@ export function AIUpload() {
             {/* Two column layout: Preview + Chat */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 lg:h-[600px]">
               {/* Left: Resume Preview/Edit */}
-              <div className="border border-default-200 rounded-2xl overflow-hidden flex flex-col h-[500px] lg:h-auto">
+              <div className="border border-default-200 rounded-[2rem] overflow-hidden flex flex-col h-[500px] lg:h-auto">
                 <div className="flex items-center gap-2 px-4 py-2.5 border-b border-default-200 bg-content2/30">
                   <FileText className="w-4 h-4 text-default-500" />
                   <span className="text-xs font-medium text-default-500">
@@ -751,7 +751,7 @@ export function AIUpload() {
               </div>
 
               {/* Right: Chat Panel */}
-              <div className="border border-default-200 rounded-2xl overflow-hidden flex flex-col h-[500px] lg:h-auto bg-content1">
+              <div className="border border-default-200 rounded-[2rem] overflow-hidden flex flex-col h-[500px] lg:h-auto bg-content1">
                 <div className="flex items-center gap-2 px-4 py-2.5 border-b border-default-200 bg-content2/30">
                   <MessageSquare className="w-4 h-4 text-primary" />
                   <span className="text-xs font-medium text-default-500">
@@ -768,7 +768,7 @@ export function AIUpload() {
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {chatMessages.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-center py-8">
-                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                      <div className="w-12 h-12 rounded-[2rem] bg-primary/10 flex items-center justify-center mb-4">
                         <Sparkles className="w-5 h-5 text-primary" />
                       </div>
                       <p className="text-sm font-medium mb-2">AI 优化助手</p>
@@ -807,7 +807,7 @@ export function AIUpload() {
                       <div key={msg.id} className="space-y-1">
                         <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                           <div
-                            className={`max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                            className={`max-w-[90%] rounded-[2rem] px-3.5 py-2.5 text-sm leading-relaxed ${
                               msg.role === 'user'
                                 ? 'bg-primary text-white rounded-br-md'
                                 : 'bg-default-100 text-foreground rounded-bl-md'
@@ -852,8 +852,8 @@ export function AIUpload() {
                               return changedLines.map((d, idx) => (
                                 <div key={idx} className={`px-2 py-px ${
                                   d.type === 'added'
-                                    ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                                    : 'bg-red-500/10 text-red-600 dark:text-red-400 line-through'
+                                    ? 'bg-success/10 text-success'
+                                    : 'bg-danger/10 text-danger line-through'
                                 }`}>
                                   <span className="select-none opacity-50 mr-1">{d.type === 'added' ? '+' : '−'}</span>
                                   {d.content || '\u00A0'}
@@ -879,7 +879,7 @@ export function AIUpload() {
                       onKeyDown={handleChatKeyDown}
                       placeholder="输入优化需求..."
                       rows={1}
-                      className="flex-1 px-3 py-2 rounded-xl bg-background border border-default-200 text-sm
+                      className="flex-1 px-3 py-2 rounded-full bg-background border border-default-200 text-sm
                         focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary
                         placeholder:text-default-400 resize-none transition-colors max-h-[80px]"
                       style={{ minHeight: '38px' }}
@@ -967,7 +967,7 @@ export function AIUpload() {
         <motion.div
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-4 flex items-center gap-2 text-sm text-danger p-3 rounded-xl bg-danger/10 max-w-2xl mx-auto"
+          className="mt-4 flex items-center gap-2 text-sm text-danger p-3 rounded-[2rem] bg-danger/10 max-w-2xl mx-auto"
         >
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
@@ -1008,7 +1008,7 @@ function AssistantMessage({ content, isStreaming }: { content: string; isStreami
           <p className="text-foreground">{comment}</p>
         )}
         <div className="flex items-center gap-1.5 text-xs text-default-400">
-          <Check className="w-3 h-3 text-emerald-500" />
+          <Check className="w-3 h-3 text-success" />
           已更新简历（{sectionCount} 个模块），左侧已同步
         </div>
       </div>

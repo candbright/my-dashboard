@@ -103,7 +103,7 @@ export function FileUpload() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`relative cursor-pointer border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300
+            className={`relative cursor-pointer border border-dashed rounded-[2rem] p-12 text-center transition-all duration-500
               ${isDragging
                 ? 'border-primary bg-primary/5 scale-[1.02]'
                 : 'border-default-300 hover:border-primary hover:bg-primary/5'
@@ -123,7 +123,7 @@ export function FileUpload() {
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
               className="flex flex-col items-center gap-4"
             >
-              <div className="w-16 h-16 rounded-2xl bg-default-100 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-[2rem] bg-default-100 flex items-center justify-center">
                 <Upload className="w-7 h-7 text-default-500" />
               </div>
               <div>
@@ -142,10 +142,10 @@ export function FileUpload() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="border border-default-200 rounded-2xl p-6"
+            className="border border-default-200 rounded-[2rem] p-6"
           >
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-[2rem] bg-primary/10 flex items-center justify-center">
                 <FileText className="w-6 h-6 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
@@ -170,7 +170,7 @@ export function FileUpload() {
                   key="success"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-success/10 text-success"
+                  className="flex items-center justify-center gap-2 py-3 rounded-[2rem] bg-success/10 text-success"
                 >
                   <Check className="w-5 h-5" />
                   <span className="font-medium">上传成功！</span>
