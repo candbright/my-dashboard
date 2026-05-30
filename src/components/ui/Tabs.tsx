@@ -52,7 +52,7 @@ function Tabs({
       <div
         className={cn(
           'flex items-center gap-0.5',
-          variant === 'solid' && 'bg-default-100 rounded-xl p-1',
+          variant === 'solid' && 'bg-default-100/50 rounded-xl p-1',
           variant === 'bordered' && 'border-b-2 border-default-200',
           variant === 'underlined' && 'border-b border-default-200',
           variant === 'light' && 'gap-2',
@@ -66,7 +66,7 @@ function Tabs({
               key={item.key}
               onClick={() => handleSelect(item.key)}
               className={cn(
-                'relative flex items-center justify-center gap-1.5 font-medium transition-all duration-200',
+                'relative flex items-center justify-center gap-1.5 font-medium transition-all duration-500',
                 sizeMap[size],
                 fullWidth && 'flex-1',
                 variant === 'solid' && [
@@ -100,8 +100,8 @@ function Tabs({
               {isSelected && variant === 'solid' && (
                 <motion.div
                   layoutId="tabs-indicator"
-                  className="absolute inset-0 bg-content1 rounded-lg shadow-sm -z-10"
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  className="absolute inset-0 bg-content1 rounded-lg -z-10"
+                  transition={{ type: 'spring', stiffness: 200, damping: 25 }}
                 />
               )}
               {isSelected && (variant === 'bordered' || variant === 'underlined') && (
@@ -113,7 +113,7 @@ function Tabs({
                     color === 'secondary' && 'bg-secondary',
                     color === 'default' && 'bg-foreground',
                   )}
-                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 25 }}
                 />
               )}
             </button>

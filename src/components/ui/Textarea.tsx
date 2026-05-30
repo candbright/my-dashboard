@@ -42,13 +42,13 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={id}
           className={cn(
-            'w-full rounded-xl px-3 py-2.5 text-sm transition-all duration-200',
+            'w-full rounded-full px-3 py-2.5 text-sm transition-all duration-500',
             'text-foreground placeholder:text-default-400 outline-none',
             'resize-y min-h-[80px]',
             variant === 'bordered'
-              ? 'bg-transparent border-2 border-default-200 hover:border-default-400'
+              ? 'bg-transparent border border-default-200 hover:border-default-300'
               : 'bg-default-100 hover:bg-default-200 border-transparent',
-            'focus:border-primary focus:ring-2 focus:ring-primary/20',
+            'focus:border-primary/60 focus:ring-2 focus:ring-primary/10',
             hasError && 'border-danger hover:border-danger focus:border-danger focus:ring-danger/20',
             className
           )}
