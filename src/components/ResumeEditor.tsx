@@ -89,12 +89,15 @@ export function ResumeEditor({
   const chatHistoryMap = useRef<Map<string, ChatMsg[]>>(new Map());
 
   // Notify parent of content changes
+  const onContentChangeRef = useRef(onContentChange);
+  onContentChangeRef.current = onContentChange;
+
   useEffect(() => {
-    if (onContentChange) {
+    if (onContentChangeRef.current) {
       const markdown = editableToMarkdown(frontmatter, sections);
-      onContentChange(markdown);
+      onContentChangeRef.current(markdown);
     }
-  }, [frontmatter, sections, onContentChange]);
+  }, [frontmatter, sections]);
 
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
@@ -359,7 +362,7 @@ export function ResumeEditor({
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-content1 border border-default-200 rounded-2xl mb-6"
+        className="bg-content1 border border-default-200 rounded-[2rem] mb-6"
       >
         {/* Frontmatter Header (always visible) */}
         <div className="flex items-center gap-3 p-5 border-b border-default-200">
@@ -440,7 +443,7 @@ export function ResumeEditor({
       <div className="mt-6 relative">
         <button
           onClick={() => setShowAddMenu(!showAddMenu)}
-          className="w-full py-4 rounded-2xl border-2 border-dashed border-default-200 hover:border-primary text-sm font-medium text-default-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-[2rem] border border-dashed border-default-200 hover:border-primary text-sm font-medium text-default-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
         >
           <Plus className="w-5 h-5" />
           添加模块
@@ -452,7 +455,7 @@ export function ResumeEditor({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
-              className="mt-2 left-1/2 -translate-x-1/2 relative bg-content1 border border-default-200 rounded-2xl shadow-xl p-3 z-20 min-w-[260px] w-fit mx-auto"
+              className="mt-2 left-1/2 -translate-x-1/2 relative bg-content1 border border-default-200 rounded-[2rem] p-3 z-20 min-w-[260px] w-fit mx-auto"
             >
               <p className="text-xs font-medium text-default-500 px-3 py-1.5 mb-1">
                 选择模块模板
@@ -463,7 +466,7 @@ export function ResumeEditor({
                   <button
                     key={preset.title}
                     onClick={() => addSection(preset)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-default-100 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[2rem] hover:bg-default-100 transition-colors text-left"
                   >
                     <Icon className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium">{preset.title}</span>
@@ -473,7 +476,7 @@ export function ResumeEditor({
               <hr className="my-2 border-default-200" />
               <button
                 onClick={() => addSection()}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-default-100 transition-colors text-left"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[2rem] hover:bg-default-100 transition-colors text-left"
               >
                 <FileText className="w-4 h-4 text-default-400" />
                 <span className="text-sm font-medium">空白模块</span>
@@ -486,7 +489,7 @@ export function ResumeEditor({
       {/* Bottom save bar */}
       {!hideBottomBar && (
         <div className="sticky bottom-6 mt-10 flex justify-end gap-3 z-10">
-          <div className="glass rounded-2xl px-5 py-3 flex items-center gap-3 shadow-lg">
+          <div className="bg-content1/95 backdrop-blur-md rounded-[2rem] px-5 py-3 flex items-center gap-3 shadow-sm">
             <span className="text-sm text-default-500">
               {sections.length} 个模块
             </span>
@@ -561,7 +564,7 @@ function DraggableSectionCard({
       value={section}
       dragListener={false}
       dragControls={dragControls}
-      className="bg-content1 border border-default-200 rounded-2xl list-none"
+      className="bg-content1 border border-default-200 rounded-[2rem] list-none"
     >
       {/* Section Header */}
       <div className="flex items-center gap-3 p-5 border-b border-default-200">
@@ -577,7 +580,7 @@ function DraggableSectionCard({
             type="text"
             value={section.title}
             onChange={(e) => onUpdateTitle(e.target.value)}
-            className="text-lg font-semibold bg-transparent w-full outline-none placeholder:text-default-400 border-b-2 border-transparent hover:border-default-200 focus:border-primary transition-colors duration-200 py-0.5 pr-7"
+            className="text-lg font-semibold bg-transparent w-full outline-none placeholder:text-default-400 border-b-2 border-transparent hover:border-default-200 focus:border-primary transition-colors duration-500 py-0.5 pr-7"
             placeholder="模块标题"
           />
           <Pencil className="w-3.5 h-3.5 absolute right-1 top-1/2 -translate-y-1/2 text-default-400 opacity-0 group-hover/title:opacity-60 transition-opacity pointer-events-none" />
@@ -628,7 +631,7 @@ function DraggableSectionCard({
                 <textarea
                   value={section.content}
                   onChange={(e) => onUpdateContent(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-background border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-y text-sm min-h-[80px] transition-colors"
+                  className="w-full px-4 py-3 rounded-[2rem] bg-background border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none resize-y text-sm min-h-[80px] transition-colors"
                   placeholder="输入段落内容..."
                   rows={3}
                 />
@@ -658,7 +661,7 @@ function DraggableSectionCard({
               {/* Add item button */}
               <button
                 onClick={onAddItem}
-                className="w-full py-3 rounded-xl border-2 border-dashed border-default-200 hover:border-primary text-sm font-medium text-default-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-[2rem] border border-dashed border-default-200 hover:border-primary text-sm font-medium text-default-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 添加条目
@@ -689,28 +692,28 @@ function SectionItemEditor({
   onUpdateDetail: (sectionId: string, itemId: string, detailIndex: number, value: string) => void;
 }) {
   return (
-    <div className="bg-background border border-default-200 rounded-xl p-4 space-y-3">
+    <div className="bg-background border border-default-200 rounded-[2rem] p-4 space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             type="text"
             value={item.title}
             onChange={(e) => onUpdate(sectionId, item.id, 'title', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-colors"
+            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
             placeholder="标题（如：高级开发工程师）"
           />
           <input
             type="text"
             value={item.subtitle}
             onChange={(e) => onUpdate(sectionId, item.id, 'subtitle', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-colors"
+            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
             placeholder="副标题（如：公司名称）"
           />
           <input
             type="text"
             value={item.date}
             onChange={(e) => onUpdate(sectionId, item.id, 'date', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-colors md:col-span-2"
+            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors md:col-span-2"
             placeholder="时间（如：2022年1月 - 至今）"
           />
         </div>
@@ -732,7 +735,7 @@ function SectionItemEditor({
               type="text"
               value={detail}
               onChange={(e) => onUpdateDetail(sectionId, item.id, idx, e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-colors"
+              className="flex-1 px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
               placeholder="描述内容..."
             />
             <button
@@ -781,7 +784,7 @@ function FormField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-4 py-2.5 rounded-xl bg-background border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm transition-colors"
+        className="w-full px-4 py-2.5 rounded-[2rem] bg-background border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
       />
     </div>
   );
