@@ -17,10 +17,12 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password?: string, code?: string, method?: 'password' | 'code') => Promise<void>;
+  guestLogin: () => Promise<void>;
   register: (username: string, email: string, password: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   isAdmin: boolean;
+  isGuest: boolean;
   isAuthenticated: boolean;
 }
 
@@ -89,6 +91,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
+  const guestLogin = useCallback(async () => {
+    const res = await apiFetch('/api/auth/guest-login', {
+      method: 'POST',
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || '游客登录失败');
+    }
+
+    if (data.token) {
+      setToken(data.token);
+    }
+    setUser(data.user);
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -102,10 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     login,
+    guestLogin,
     register,
     logout,
     refresh,
     isAdmin: user?.role === 'admin',
+    isGuest: user?.username === 'guest',
     isAuthenticated: !!user,
   };
 

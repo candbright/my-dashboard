@@ -5,11 +5,11 @@ import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
-import { Button, Input, Card, Divider } from '@/components/ui';
+import { Button, Input, Card, Divider, Chip } from '@/components/ui';
 import { useCountdown } from '@/hooks/useCountdown';
 
 export default function SettingsAccountPage() {
-  const { user, refresh } = useAuth();
+  const { user, isGuest, refresh } = useAuth();
 
   // Username state
   const [username, setUsername] = useState('');
@@ -175,6 +175,14 @@ export default function SettingsAccountPage() {
     >
       <h1 className="text-2xl font-bold tracking-tight mb-6">账号</h1>
       <Divider className="mb-6" />
+
+      {isGuest && (
+        <div className="flex items-center gap-2 mb-6 px-4 py-3 rounded-[2rem] bg-warning/10 border border-warning/20">
+          <Chip variant="flat" color="warning" size="sm">游客</Chip>
+          <span className="text-sm text-warning">游客账户仅供体验，无法修改个人信息</span>
+        </div>
+      )}
+
       {/* ── Username ── */}
       <Card variant="bordered" className="p-6 mb-6">
         <h2 className="text-sm font-semibold mb-1">用户名</h2>
@@ -186,16 +194,19 @@ export default function SettingsAccountPage() {
             placeholder="用户名"
             variant="bordered"
             errorMessage={usernameError ?? undefined}
+            disabled={isGuest}
           />
-          <Button
-            color="primary"
-            onClick={handleSaveUsername}
-            isLoading={savingUsername}
-            isDisabled={username === user.username}
-            startContent={usernameSaved ? <Check className="w-4 h-4" /> : undefined}
-          >
-            {usernameSaved ? '已保存' : '保存'}
-          </Button>
+          {!isGuest && (
+            <Button
+              color="primary"
+              onClick={handleSaveUsername}
+              isLoading={savingUsername}
+              isDisabled={username === user.username}
+              startContent={usernameSaved ? <Check className="w-4 h-4" /> : undefined}
+            >
+              {usernameSaved ? '已保存' : '保存'}
+            </Button>
+          )}
         </div>
       </Card>
 
@@ -207,47 +218,52 @@ export default function SettingsAccountPage() {
           <p className="text-sm text-default-500">
             <span className="text-foreground font-medium">{user.email}</span>
           </p>
-          <Input
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            placeholder="新邮箱地址"
-            variant="bordered"
-          />
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              maxLength={6}
-              value={emailCode}
-              onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="6位验证码"
-              variant="bordered"
-              className="flex-1"
-            />
-            <Button
-              variant="bordered"
-              onClick={handleSendEmailCode}
-              isLoading={sendingEmailCode}
-              isDisabled={emailCooldown > 0 || !newEmail.trim()}
-              className="shrink-0"
-            >
-              {emailCooldown > 0 ? `${emailCooldown}s` : '发送验证码'}
-            </Button>
-          </div>
-          {emailError && <p className="text-sm text-danger">{emailError}</p>}
-          <Button
-            color="primary"
-            onClick={handleSaveEmail}
-            isLoading={savingEmail}
-            isDisabled={!newEmail.trim() || !emailCode.trim()}
-            startContent={emailSaved ? <Check className="w-4 h-4" /> : undefined}
-          >
-            {emailSaved ? '已保存' : '保存'}
-          </Button>
+          {!isGuest && (
+            <>
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="新邮箱地址"
+                variant="bordered"
+              />
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  maxLength={6}
+                  value={emailCode}
+                  onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="6位验证码"
+                  variant="bordered"
+                  className="flex-1"
+                />
+                <Button
+                  variant="bordered"
+                  onClick={handleSendEmailCode}
+                  isLoading={sendingEmailCode}
+                  isDisabled={emailCooldown > 0 || !newEmail.trim()}
+                  className="shrink-0"
+                >
+                  {emailCooldown > 0 ? `${emailCooldown}s` : '发送验证码'}
+                </Button>
+              </div>
+              {emailError && <p className="text-sm text-danger">{emailError}</p>}
+              <Button
+                color="primary"
+                onClick={handleSaveEmail}
+                isLoading={savingEmail}
+                isDisabled={!newEmail.trim() || !emailCode.trim()}
+                startContent={emailSaved ? <Check className="w-4 h-4" /> : undefined}
+              >
+                {emailSaved ? '已保存' : '保存'}
+              </Button>
+            </>
+          )}
         </div>
       </Card>
 
       {/* ── Password ── */}
+      {!isGuest && (
       <Card variant="bordered" className="p-6">
         <h2 className="text-sm font-semibold mb-1">密码</h2>
         <Divider className="my-3" />
@@ -285,6 +301,7 @@ export default function SettingsAccountPage() {
           </Button>
         </div>
       </Card>
+      )}
     </motion.div>
   );
 }

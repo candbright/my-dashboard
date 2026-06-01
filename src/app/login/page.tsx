@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
 import { useCountdown } from '@/hooks/useCountdown';
-import { Button, Input, Card, CardBody, Tabs } from '@/components/ui';
-import { Send } from 'lucide-react';
+import { Button, Input, Card, CardBody, Tabs, Divider } from '@/components/ui';
+import { Send, UserRound } from 'lucide-react';
 
 export default function LoginPage() {
   return (
@@ -28,7 +28,8 @@ function LoginForm() {
   const [sendingCode, setSendingCode] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
   const [cooldown, startCooldown] = useCountdown(60);
-  const { login, isAuthenticated } = useAuth();
+  const [guestLoading, setGuestLoading] = useState(false);
+  const { login, guestLogin, isAuthenticated } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -213,6 +214,34 @@ function LoginForm() {
                 登录
               </Button>
             </form>
+
+            <div className="flex items-center gap-3">
+              <Divider className="flex-1" />
+              <span className="text-xs text-default-400 whitespace-nowrap">或</span>
+              <Divider className="flex-1" />
+            </div>
+
+            <Button
+              type="button"
+              variant="bordered"
+              fullWidth
+              isLoading={guestLoading}
+              startContent={!guestLoading ? <UserRound className="w-4 h-4" /> : undefined}
+              onClick={async () => {
+                setError(null);
+                setGuestLoading(true);
+                try {
+                  await guestLogin();
+                  router.push('/');
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : '游客登录失败');
+                } finally {
+                  setGuestLoading(false);
+                }
+              }}
+            >
+              游客登录
+            </Button>
           </CardBody>
         </Card>
 
