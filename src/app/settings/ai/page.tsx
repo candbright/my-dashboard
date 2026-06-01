@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Check, ExternalLink, Zap, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
-import { Button, Input, Select, Spinner, Divider, Card, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
+import { Button, Input, Select, Spinner, Divider, Card, Chip, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
 
 type AIProvider = 'deepseek' | 'openai' | 'qwen' | 'zhipu' | 'moonshot' | 'custom';
 
@@ -77,7 +77,7 @@ function initProviderStates(): Record<AIProvider, ProviderState> {
 }
 
 export default function UserAISettingsPage() {
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, isAdmin, isGuest, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hasCustomConfig, setHasCustomConfig] = useState(false);
 
@@ -321,6 +321,13 @@ export default function UserAISettingsPage() {
 
       <Divider className="mb-6" />
 
+      {isGuest && (
+        <div className="flex items-center gap-2 mb-6 px-4 py-3 rounded-[2rem] bg-warning/10 border border-warning/20">
+          <Chip variant="flat" color="warning" size="sm">游客</Chip>
+          <span className="text-sm text-warning">游客账户仅供体验，无法修改 API 配置</span>
+        </div>
+      )}
+
       {/* Provider Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
         {PROVIDER_ORDER.map((id) => {
@@ -378,6 +385,7 @@ export default function UserAISettingsPage() {
             onChange={(e) => setApiKey(e.target.value)}
             placeholder={currentState.configured ? '输入新 Key 以更新' : `${currentPreset.name} API Key`}
             variant="bordered"
+            disabled={isGuest}
           />
           {currentPreset.keyUrl && (
             <p className="text-xs text-default-400 mt-1">
@@ -402,6 +410,7 @@ export default function UserAISettingsPage() {
               onChange={(e) => setModel(e.target.value)}
               variant="bordered"
               options={currentPreset.models.map((m) => ({ value: m, label: m }))}
+              disabled={isGuest}
             />
           ) : (
             <Input
@@ -410,6 +419,7 @@ export default function UserAISettingsPage() {
               onChange={(e) => setCustomModel(e.target.value)}
               placeholder="输入模型名称，如 gpt-4o"
               variant="bordered"
+              disabled={isGuest}
             />
           )}
         </div>
@@ -421,6 +431,7 @@ export default function UserAISettingsPage() {
           onChange={(e) => setBaseUrl(e.target.value)}
           placeholder="https://..."
           variant="bordered"
+          disabled={isGuest}
         />
 
         {error && <p className="text-sm text-danger">{error}</p>}
@@ -453,6 +464,7 @@ export default function UserAISettingsPage() {
         )}
 
         {/* Buttons */}
+        {!isGuest && (
         <div className="flex gap-3 flex-wrap">
           <Button
             color="primary"
@@ -486,9 +498,10 @@ export default function UserAISettingsPage() {
             </Button>
           )}
         </div>
+        )}
 
         {/* Delete custom config */}
-        {hasCustomConfig && (
+        {hasCustomConfig && !isGuest && (
           <div className="pt-4 border-t border-default-200">
             <Button
               variant="light"
