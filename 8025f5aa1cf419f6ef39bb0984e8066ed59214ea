@@ -1,0 +1,16 @@
+next.config.ts
+  h_ca34b32b88a7b6 5-9,50-51,69-71,73
+src/lib/api-client.ts
+  h_ca34b32b88a7b6 12-20,30,33,55,58,86-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8025f5aa1cf419f6ef39bb0984e8066ed59214ea",
+  "prompts": {},
+  "humans": {
+    "h_ca34b32b88a7b6": {
+      "author": "candbright <candbright@outlook.com>"
+    }
+  }
+}
