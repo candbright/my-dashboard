@@ -9,6 +9,15 @@
 
 const TOKEN_KEY = 'auth_token';
 
+/**
+ * Sub-path the app is served under (e.g. '/my-dashboard'), inlined at build
+ * time. Empty string at the domain root. API requests and auth cookies must be
+ * scoped to it, otherwise they would collide with other apps on the same origin
+ * (the site root serves a separate dashboard whose backend owns /api/*).
+ */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const COOKIE_PATH = BASE_PATH || '/';
+
 let _token: string | null = null;
 
 /** Initialize token from localStorage on load and sync cookie ↔ localStorage */
@@ -18,10 +27,10 @@ if (typeof window !== 'undefined') {
   if (_token && !hasCookie) {
     // localStorage has token but cookie is missing — sync cookie so Server
     // Components (SSR) can access the auth token on next navigation.
-    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(_token)}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(_token)}; path=${COOKIE_PATH}; max-age=${7 * 24 * 3600}; SameSite=Lax`;
   } else if (!_token && hasCookie) {
     // localStorage was cleared but cookie still exists — clear the stale cookie.
-    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
+    document.cookie = `${TOKEN_KEY}=; path=${COOKIE_PATH}; max-age=0`;
   }
 }
 
@@ -43,10 +52,10 @@ export function setToken(token: string | null) {
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
       // Sync to cookie so Server Components can read the token
-      document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 3600}; SameSite=Lax`;
+      document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=${COOKIE_PATH}; max-age=${7 * 24 * 3600}; SameSite=Lax`;
     } else {
       localStorage.removeItem(TOKEN_KEY);
-      document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
+      document.cookie = `${TOKEN_KEY}=; path=${COOKIE_PATH}; max-age=0`;
     }
   }
 }
@@ -74,7 +83,14 @@ export async function apiFetch(
     headers.set('Content-Type', 'application/json');
   }
 
-  return fetch(path, { ...options, headers });
+  // Callers pass root-relative paths ('/api/...'). Under a sub-path deployment
+  // the request must carry that prefix so it reaches this app's own rewrite
+  // instead of the site root's /api/* (owned by another backend).
+  const url = BASE_PATH && path.startsWith('/') && !path.startsWith(`${BASE_PATH}/`)
+    ? `${BASE_PATH}${path}`
+    : path;
+
+  return fetch(url, { ...options, headers });
 }
 
 /**

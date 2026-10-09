@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== 'production';
 
+// Sub-path deployment support (e.g. served behind nginx at /my-dashboard/).
+// This value is inlined into the client bundles, so it must be set at build
+// time. Empty string keeps the app at the domain root (local development).
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 // Extra origins allowed in connect-src:
 // - Always include NEXT_PUBLIC_API_URL if set (handles any protocol/host)
 // - In dev, also allow all localhost ports over both http and https
@@ -42,6 +47,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Served behind nginx under /my-dashboard/ in production; root in dev.
+  ...(basePath ? { basePath } : {}),
   images: {
     // Avoid wildcard '**' — restrict to known safe domains.
     // Add specific hostnames your app actually loads avatar images from.
@@ -59,8 +66,11 @@ const nextConfig: NextConfig = {
     if (!target) return [];
     return [
       {
-        source: '/api/:path*',
+        // basePath: false + explicit source, because the destination is an
+        // absolute external URL that must NOT get the basePath prefixed.
+        source: `${basePath}/api/:path*`,
         destination: `${target}/api/:path*`,
+        basePath: false,
       },
     ];
   },
