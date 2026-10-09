@@ -1,0 +1,28 @@
+# Production image for the my-dashboard frontend (Next.js 16).
+#
+# Build context is the application source tree (stack/src/my-dashboard).
+# NEXT_PUBLIC_BASE_PATH and API_URL are build-time inputs: the base path is
+# inlined into the client bundles, so it cannot be changed without a rebuild.
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NEXT_TELEMETRY_DISABLED=1
+# Faster installs from inside mainland China; override with --build-arg.
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
+COPY package.json package-lock.json ./
+RUN npm config set registry "$NPM_REGISTRY" \
+ && npm ci --no-audit --no-fund
+
+COPY . .
+
+ENV NODE_ENV=production \
+    PORT=30002 \
+    NEXT_PUBLIC_BASE_PATH=/my-dashboard \
+    API_URL=http://mydash-kratos:20002
+
+RUN npm run build
+
+EXPOSE 30002
+CMD ["npm", "start"]

@@ -1,0 +1,17 @@
+# Runtime image for the kratos-server backend.
+#
+# The Go binary is cross-compiled on the developer machine (CGO_ENABLED=0,
+# GOOS=linux) and copied in, so the small production server never has to run a
+# Go toolchain build. alpine:3.20 already ships /etc/ssl/certs/ca-certificates.crt,
+# which the backend needs to call the AI provider APIs over HTTPS.
+FROM alpine:3.20
+
+RUN addgroup -g 10001 -S app && adduser -u 10001 -S app -G app
+
+WORKDIR /app
+COPY kratos/kratos-server /app/kratos-server
+RUN chmod 0755 /app/kratos-server
+
+USER app
+EXPOSE 20002
+CMD ["/app/kratos-server", "-conf", "/data/conf"]

@@ -1,0 +1,5 @@
+# Cross-compiled kratos-server binary is copied here before deploying (see README.md).
+kratos/kratos-server
+# Stack runtime state / secrets (server-side only).
+.env
+runtime/

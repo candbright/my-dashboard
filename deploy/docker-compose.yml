@@ -1,0 +1,85 @@
+# my-dashboard stack — fully independent from the mc-dashboard / BDS services.
+#
+# Isolation choices:
+#   - own compose project, own docker network (mydash-net), own volumes
+#   - postgres/redis are NOT published on the host: no port can clash with mc
+#   - only two host ports, both bound to 127.0.0.1 (nginx reaches them locally)
+#       web    127.0.0.1:3002  -> container 30002
+#       kratos 127.0.0.1:20002 -> container 20002 (ops/debug only)
+name: mydash
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: mydash-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Keep the cluster self-contained and quiet.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - ./runtime/postgres-data:/var/lib/postgresql/data
+    networks:
+      - mydash-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    image: redis:7
+    container_name: mydash-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - mydash-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  kratos:
+    image: mydash-kratos:latest
+    container_name: mydash-kratos
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./runtime/kratos/conf:/data/conf:ro
+      - ./runtime/resumes:/data/resumes
+    ports:
+      - "127.0.0.1:${KRATOS_PORT}:20002"
+    networks:
+      - mydash-net
+
+  web:
+    image: mydash-web:latest
+    container_name: mydash-web
+    restart: unless-stopped
+    depends_on:
+      kratos:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: "30002"
+      # Server-side rewrite target (Next.js /my-dashboard/api/* -> kratos).
+      API_URL: http://mydash-kratos:20002
+      NEXT_PUBLIC_BASE_PATH: /my-dashboard
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:${WEB_PORT}:30002"
+    networks:
+      - mydash-net
+
+networks:
+  mydash-net:
+    name: mydash-net
+    driver: bridge

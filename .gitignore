@@ -43,3 +43,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local deployment scratch (server recon notes, session-only scripts)
+/.deploy-ref/
