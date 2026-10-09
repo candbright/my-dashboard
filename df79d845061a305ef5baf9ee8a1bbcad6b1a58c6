@@ -1,0 +1,14 @@
+.gitattributes
+  h_ca34b32b88a7b6 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "df79d845061a305ef5baf9ee8a1bbcad6b1a58c6",
+  "prompts": {},
+  "humans": {
+    "h_ca34b32b88a7b6": {
+      "author": "candbright <candbright@outlook.com>"
+    }
+  }
+}
