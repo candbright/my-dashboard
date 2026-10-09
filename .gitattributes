@@ -1,0 +1,9 @@
+# Line endings: files that end up on Linux (Docker build context, deploy
+# scripts, nginx snippets) must stay LF. Without this, a Windows checkout with
+# core.autocrlf=true rewrites them to CRLF and the shell scripts fail on the
+# server with `bash: /usr/bin/env: bad interpreter: No such file or directory`.
+*.sh                text eol=lf
+Dockerfile          text eol=lf
+Dockerfile.*        text eol=lf
+*.conf              text eol=lf
+docker-compose*.yml text eol=lf
