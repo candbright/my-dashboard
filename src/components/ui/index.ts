@@ -6,6 +6,8 @@
  */
 
 export { Button } from './Button';
+export { Pressable } from './Pressable';
+export { Switch } from './Switch';
 export { Input } from './Input';
 export { Textarea } from './Textarea';
 export { Card, CardHeader, CardBody, CardFooter } from './Card';
@@ -17,6 +19,7 @@ export { Divider } from './Divider';
 export { EmptyState } from './EmptyState';
 export { Select } from './Select';
 export { ConfirmModal } from './ConfirmModal';
+export { Modal } from './Modal';
 export { useToast, ToastContainer } from './Toast';
 import type { ToastData } from './Toast';
 export type { ToastData };

@@ -62,7 +62,7 @@ export function ConfirmModal({
             transition={{ duration: 0.25, ease: [0.25, 0.4, 0.25, 1] }}
             className="relative z-10 w-full max-w-sm mx-4"
           >
-            <div className="bg-content1 border border-default-200 rounded-[2rem] p-6 shadow-lg">
+            <div className="bg-content1 border border-default-200 rounded-[2rem] p-6 shadow-sm">
               {/* Icon */}
               <div className="w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center mb-4">
                 <AlertTriangle className="w-5 h-5 text-danger" />

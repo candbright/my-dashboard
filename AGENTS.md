@@ -354,3 +354,15 @@ export function NewComponent({ className, ...props }: NewComponentProps) {
 - `npm run dev` — 启动开发服务器 (Turbopack)
 - `npm run build` — 生产构建 + TypeScript 类型检查
 - 每次修改后应运行 `npm run build` 验证无类型错误
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as local markdown files under `.scratch/<feature-slug>/` in this repo — not on GitHub. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

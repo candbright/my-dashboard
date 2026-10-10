@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, grantPermission, revokePermission } from '@/lib/api-client';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Button, Card, Chip, Spinner, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
+import { Button, Card, Chip, Spinner, Switch, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
 
 interface UserItem {
   id: string;
@@ -14,8 +14,30 @@ interface UserItem {
   email: string;
   role: 'admin' | 'user';
   avatar: string | null;
-  ai_enabled: boolean;
-  created_at: string;
+  /**
+   * Whether the account holds the `use_global` AI permission.
+   *
+   * The field is named `aiEnabled` for continuity with the payload the API has
+   * always sent, but it is derived from the permission grant, not stored on the
+   * user row: an approval and a direct toggle write the same record.
+   */
+  aiEnabled: boolean;
+  createdAt: string;
+}
+
+/**
+ * Render a timestamp defensively.
+ *
+ * The payload is camelCase, and reading the wrong field name yields
+ * `undefined`; `new Date(undefined)` is an Invalid Date, and date-fns throws
+ * "Invalid time value" from inside render, which Next's error boundary turns
+ * into "This page couldn't load". A dash keeps a payload mismatch visible
+ * without destroying the page.
+ */
+function relativeTime(value: string): string {
+  const parsed = value ? new Date(value) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) return '—';
+  return formatDistanceToNow(parsed, { addSuffix: true, locale: zhCN });
 }
 
 export default function UsersPage() {
@@ -69,21 +91,30 @@ export default function UsersPage() {
     }
   };
 
-  const handleAIToggle = async (userId: string, enabled: boolean) => {
+  /**
+   * Switch a user's global-API permission.
+   *
+   * Goes through the permission endpoints rather than a bespoke `ai_enabled`
+   * flag. The flag used to be the only record of the permission, so a grant made
+   * here and one made by approving an application were different things, and
+   * revoking here left the approval record claiming the permission still held.
+   * Now there is one record, and this is just a direct way to write it.
+   */
+  const handleGlobalAPIToggle = async (userId: string, enabled: boolean) => {
     setUpdatingAI(userId);
     try {
-      const res = await apiFetch('/api/admin/users/ai', {
-        method: 'PUT',
-        body: JSON.stringify({ userId, aiEnabled: enabled }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, ai_enabled: data.user.ai_enabled } : u))
-        );
+      const params = { userId, resourceType: 'ai', permission: 'use_global' };
+      if (enabled) {
+        await grantPermission(params);
+      } else {
+        await revokePermission(params);
       }
-    } catch {
-      // silent
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, aiEnabled: enabled } : u))
+      );
+      addToast('success', enabled ? '已授予全局 API 使用权限' : '已撤销全局 API 使用权限');
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : '操作失败');
     } finally {
       setUpdatingAI(null);
     }
@@ -116,7 +147,7 @@ export default function UsersPage() {
               <th className="px-4 py-2.5">用户</th>
               <th className="px-4 py-2.5">邮箱</th>
               <th className="px-4 py-2.5">角色</th>
-              <th className="px-4 py-2.5">AI</th>
+              <th className="px-4 py-2.5">全局 API</th>
               <th className="px-4 py-2.5">注册时间</th>
               <th className="px-4 py-2.5 text-right">操作</th>
             </tr>
@@ -144,23 +175,16 @@ export default function UsersPage() {
                   {u.role === 'admin' ? (
                     <Chip size="sm" color="success" variant="flat">始终开启</Chip>
                   ) : (
-                    <button
-                      onClick={() => handleAIToggle(u.id, !u.ai_enabled)}
+                    <Switch
+                      checked={u.aiEnabled}
+                      onChange={(next) => handleGlobalAPIToggle(u.id, next)}
                       disabled={updatingAI === u.id}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                        u.ai_enabled ? 'bg-success' : 'bg-default-200'
-                      } ${updatingAI === u.id ? 'opacity-50' : 'cursor-pointer'}`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                          u.ai_enabled ? 'translate-x-4.5' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
+                      label={u.aiEnabled ? `撤销 ${u.username} 的全局 API 权限` : `授予 ${u.username} 全局 API 权限`}
+                    />
                   )}
                 </td>
                 <td className="px-4 py-3 text-default-500">
-                  {formatDistanceToNow(new Date(u.created_at), { addSuffix: true, locale: zhCN })}
+                  {relativeTime(u.createdAt)}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {u.id !== currentUser?.id && (
