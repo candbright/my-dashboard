@@ -1,0 +1,24 @@
+src/app/admin/ai/page.tsx
+  h_ca34b32b88a7b6 68-69,110-113,137,147-176,352,367-369,397-398,403,410
+src/app/settings/ai/page.tsx
+  h_ca34b32b88a7b6 118-119,122-125
+src/components/ai/ProviderFormModal.tsx
+  h_ca34b32b88a7b6 3-4,16,64-66,72-74,77,79-81,92,98,100-104,110-111,118-119,137,147-148,157-203,211,213-223,247-249,252,259-261,266,287,304-306,313,326-432,452-458,460,462-474,476-541,543-549,551-560,562,565-568,570-572
+src/components/ai/ProviderList.tsx
+  h_ca34b32b88a7b6 3,10,13,36-43,52,54-57,68-69,108,113,121-157,159-162,164-166,169-192,196-224
+src/lib/ai-providers.ts
+  h_ca34b32b88a7b6 40-41,79
+src/lib/api-client.ts
+  h_ca34b32b88a7b6 221-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1749af0f64d7389225e94bc4f1aadb8186638788",
+  "prompts": {},
+  "humans": {
+    "h_ca34b32b88a7b6": {
+      "author": "candbright <candbright@outlook.com>"
+    }
+  }
+}
