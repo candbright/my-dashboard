@@ -1,0 +1,22 @@
+src/app/admin/ai/page.tsx
+  h_ca34b32b88a7b6 83,86-88,90-93
+src/app/settings/ai/page.tsx
+  h_ca34b32b88a7b6 9,29,33-34,37,43,45-51,56-61,71,88-97,105,124,127-211,340-344,518-537,545-551,563,565-567,605,611-640
+src/components/ai/ProviderList.tsx
+  h_ca34b32b88a7b6 19,25-26,64,113-121,152-156,189,239
+src/lib/ai-providers.ts
+  h_ca34b32b88a7b6 56-63
+src/lib/api-client.ts
+  h_ca34b32b88a7b6 221-230,233-234,240,248-249,251,256,261-265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ab9148d6c75f411d0dece9abfaecb55f6ebae55d",
+  "prompts": {},
+  "humans": {
+    "h_ca34b32b88a7b6": {
+      "author": "candbright <candbright@outlook.com>"
+    }
+  }
+}
