@@ -34,11 +34,12 @@ interface ProviderListProps {
   onDelete?: (provider: ProviderView) => void;
   onAdd?: () => void;
   /**
-   * Per-model enable switch. Absent (the user settings page), the switches
-   * render disabled: which models exist is information every caller gets, but
-   * changing it is an administrator action.
+   * Switch the one enabled model. Exactly one model is enabled at a time, so
+   * the switches act as a radio group: clicking a model's switch enables THAT
+   * model and disables the previous one. Absent (the user settings page), the
+   * switches render disabled.
    */
-  onToggleModel?: (provider: ProviderView, model: string, enabled: boolean) => void;
+  onSetActiveModel?: (provider: ProviderView, model: string) => void;
   /** `${providerId}:${model}` currently being persisted, to debounce its switch. */
   modelBusy?: string | null;
   /** Rendered under the heading, e.g. the global key field. */
@@ -65,7 +66,7 @@ export function ProviderList({
   onEdit,
   onDelete,
   onAdd,
-  onToggleModel,
+  onSetActiveModel,
   modelBusy,
   action,
   emptyHint,
@@ -105,7 +106,8 @@ export function ProviderList({
           // With no `onSelect` the list is read-only, so the row must not still
           // advertise itself as clickable.
           const selectable = Boolean(onSelect) && provider.selectable;
-          const disabled = new Set(provider.disabledModels ?? []);
+          // Exactly one model is enabled: the explicit choice, else the first.
+          const active = provider.activeModel || provider.models[0] || '';
           return (
             <div
               key={provider.id}
@@ -152,7 +154,7 @@ export function ProviderList({
                     <span>·</span>
                     <span>{provider.protocolLabel}</span>
                     <span>·</span>
-                    <span>{provider.models.length - disabled.size} / {provider.models.length} 个模型启用</span>
+                    <span>{provider.models.length} 个模型</span>
                   </div>
                 </div>
 
@@ -193,28 +195,32 @@ export function ProviderList({
                 </div>
               </div>
 
-              {/* Every model, one switch each. A long list scrolls inside the row
-                  instead of stretching the page. */}
+              {/* Every model, one switch each — but the switches are a radio
+                  group: exactly one is on, and turning one on turns the others
+                  off. The active model's own switch is disabled because the
+                  single enabled model cannot be turned off. */}
               {provider.models.length > 0 && (
                 <div className="mt-3 flex max-h-32 flex-wrap items-center gap-2 overflow-y-auto pl-8">
                   {provider.models.map((model) => {
-                    const enabled = !disabled.has(model);
+                    const isActive = model === active;
                     const busy = modelBusy === `${provider.id}:${model}`;
                     return (
                       <span
                         key={model}
                         className={cn(
                           'flex items-center gap-2 rounded-full border px-3 py-1 text-xs',
-                          enabled
-                            ? 'border-default-200 text-default-600'
-                            : 'border-default-200 text-default-400'
+                          isActive
+                            ? 'border-primary/40 bg-primary/5 text-foreground'
+                            : 'border-default-200 text-default-500'
                         )}
                       >
                         <span className="max-w-56 truncate">{model}</span>
                         <Switch
-                          checked={enabled}
-                          onChange={(next) => onToggleModel?.(provider, model, next)}
-                          disabled={!onToggleModel || busy}
+                          checked={isActive}
+                          onChange={() => {
+                            if (!isActive) onSetActiveModel?.(provider, model);
+                          }}
+                          disabled={!onSetActiveModel || isActive || busy}
                           label={`${provider.name} 的模型 ${model}`}
                         />
                       </span>

@@ -145,30 +145,27 @@ export default function AdminAIGlobalPage() {
   };
 
   /**
-   * One model's enable switch. This writes the whole definition back with the
-   * flipped flag: there is no narrower endpoint, and the definition is small
-   * enough that replacing it is simpler than a patch protocol.
+   * Switch the provider's one enabled model. Only a single model is usable at
+   * a time: this writes the whole definition back with the new activeModel.
    */
-  const handleToggleModel = async (provider: ProviderView, model: string, enabled: boolean) => {
+  const handleSetActiveModel = async (provider: ProviderView, model: string) => {
+    if ((provider.activeModel || provider.models[0]) === model) return;
     setModelBusy(`${provider.id}:${model}`);
     try {
-      const disabled = new Set(provider.disabledModels ?? []);
-      if (enabled) disabled.delete(model);
-      else disabled.add(model);
       const payload = await updateProvider(provider.id, {
         id: provider.id,
         name: provider.name,
         baseUrl: provider.baseUrl,
         protocol: provider.protocol,
         models: provider.models,
-        disabledModels: [...disabled],
+        activeModel: model,
         keyUrl: provider.keyUrl ?? '',
       });
       applyList(payload);
       const refreshed = await getGlobalAI();
       setGlobalState(refreshed);
     } catch (err) {
-      addToast('error', err instanceof Error ? err.message : '更新模型状态失败');
+      addToast('error', err instanceof Error ? err.message : '切换模型失败');
     } finally {
       setModelBusy(null);
     }
@@ -365,7 +362,7 @@ export default function AdminAIGlobalPage() {
               onEdit={openEdit}
               onDelete={setDeleting}
               onAdd={openAdd}
-              onToggleModel={handleToggleModel}
+              onSetActiveModel={handleSetActiveModel}
               modelBusy={modelBusy}
               emptyHint="还没有添加提供商。点击「添加提供商」，从第三方厂商目录中选择，或自行填写。"
             />

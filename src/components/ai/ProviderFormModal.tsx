@@ -244,9 +244,10 @@ export function ProviderFormModal({
       baseUrl: baseUrl.trim(),
       protocol,
       models,
-      // Model enablement is managed from the list's per-model switches, not from
-      // this form, so a save carries the current state through unchanged.
-      disabledModels: isEditing ? (editing?.disabledModels ?? []) : [],
+      // The enabled-model choice is managed from the list's radio switches,
+      // not from this form, so a save carries the current value through
+      // unchanged.
+      activeModel: isEditing ? (editing?.activeModel ?? '') : '',
       keyUrl: keyUrl.trim(),
     }),
     [id, name, baseUrl, protocol, models, keyUrl, isEditing, editing]

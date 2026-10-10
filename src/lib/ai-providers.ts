@@ -37,8 +37,8 @@ export interface ProviderView {
   protocol: AIProtocol;
   protocolLabel: string;
   models: string[];
-  /** Members of `models` an administrator switched off. May be null over the wire. */
-  disabledModels: string[] | null;
+  /** The ONE enabled model; the per-model switches are a radio group over it. */
+  activeModel: string;
   keyUrl?: string;
   status: string;
   /** Whether the provider is fully defined, so it can be selected at all. */
@@ -76,7 +76,7 @@ export interface ProviderDraft {
   baseUrl: string;
   protocol: AIProtocol;
   models: string[];
-  disabledModels?: string[];
+  activeModel?: string;
   keyUrl?: string;
 }
 

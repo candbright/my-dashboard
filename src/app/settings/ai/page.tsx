@@ -115,14 +115,12 @@ export default function UserAISettingsPage() {
   );
 
   // An empty list is itself a selectable option: it means "use the provider's
-  // own default model", which is what the backend falls back to. Models the
-  // administrator switched off are not offered.
+  // own default model", which is what the backend falls back to. Only the one
+  // enabled model is usable, so it is the only real choice.
   const modelOptions = useMemo(() => {
     const opts = [{ value: '', label: '使用提供商默认模型' }];
-    const off = new Set(selected?.disabledModels ?? []);
-    for (const m of selected?.models ?? []) {
-      if (!off.has(m)) opts.push({ value: m, label: m });
-    }
+    const active = selected?.activeModel || selected?.models[0];
+    if (active) opts.push({ value: active, label: active });
     return opts;
   }, [selected]);
 
