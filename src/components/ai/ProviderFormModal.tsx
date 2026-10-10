@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Download, GripVertical, Loader2, Plus, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Download, GripVertical, Loader2, Plus, X } from 'lucide-react';
 import {
   Button,
   Input,
@@ -13,6 +13,7 @@ import {
   AI_PROTOCOLS,
   AI_PROTOCOL_LABELS,
   type AIProtocol,
+  type CatalogEntry,
   type DiscoveredModel,
   type ProviderDraft,
   type ProviderView,
@@ -60,19 +61,24 @@ function deriveId(name: string): string {
     .slice(0, 40);
 }
 
+/** The vendor-select value meaning "none of the catalogue entries". */
+const CUSTOM_VENDOR = '__custom__';
+
 interface ProviderFormModalProps {
   open: boolean;
   onClose: () => void;
   /** The provider being edited, or null when adding. */
   editing: ProviderView | null;
+  /** The built-in vendor catalogue, for the add-mode dropdown. */
+  catalog: CatalogEntry[];
+  catalogLoading?: boolean;
   protocols: { value: AIProtocol; label: string }[];
   /**
-   * Submit the definition and, in edit mode, the credential intent.
+   * Submit the definition plus the credential intent.
    *
-   * The key rides along because it belongs to the provider: editing a provider is
-   * where a key gets rotated or removed, not a separate card on the page.
-   * `apiKey` is only meaningful while editing — in add mode the field exists to
-   * power model discovery and is never persisted.
+   * The key rides along because it belongs to the provider: the add form saves
+   * it so a provider works the moment it appears, and the edit form is where a
+   * key gets rotated or removed.
    */
   onSubmit: (draft: ProviderDraft, key: { apiKey: string; clearKey: boolean }) => Promise<void>;
   /**
@@ -83,33 +89,34 @@ interface ProviderFormModalProps {
    * personal one — and this form should not know which page opened it.
    */
   onDiscover: (draft: ProviderDraft, apiKey: string) => Promise<DiscoveredModel[]>;
-  /** Optional credential field, shown only to callers it applies to. */
+  /** Optional credential field label/placeholder overrides. */
   apiKeyLabel?: string;
   apiKeyPlaceholder?: string;
 }
 
 /**
- * The add/edit provider form.
+ * The add/edit provider form — one modal, DSH-style.
  *
- * Two things drive its shape. It is a modal because "add" is a deliberate, rare
- * action that should not hold permanent screen space. And its width is `md`, not
- * `lg`, because the fields are short: a full-width form for a URL and a protocol
- * dropdown reads as a wall of empty input.
- *
- * Only the id is ever read-only, and it is dimmed rather than merely unclickable
- * — the browser's own disabled styling is overridden by the design system, so
- * without the explicit treatment a locked field looks editable until typed into.
+ * Adding starts from a vendor dropdown. Picking a catalogue vendor pre-fills
+ * everything except the key; the endpoint, protocol and model list sit behind a
+ * collapsed "自定义设置" section because the catalogue values are almost always
+ * the right ones. Picking "自定义提供商" expands the same section with blank
+ * fields. Editing skips the dropdown — the vendor choice is the entry itself.
  */
 export function ProviderFormModal({
   open,
   onClose,
   editing,
+  catalog,
+  catalogLoading = false,
   protocols,
   onSubmit,
   onDiscover,
   apiKeyLabel,
   apiKeyPlaceholder,
 }: ProviderFormModalProps) {
+  const [vendorId, setVendorId] = useState(CUSTOM_VENDOR);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [id, setId] = useState('');
   /** True once the id has been auto-derived and may be rewritten by the name. */
   const [idDerived, setIdDerived] = useState(true);
@@ -127,6 +134,7 @@ export function ProviderFormModal({
   const [error, setError] = useState<string | null>(null);
 
   const isEditing = editing !== null;
+  const isCustom = vendorId === CUSTOM_VENDOR;
 
   // Reset on open so a cancelled edit cannot leak into the next one.
   useEffect(() => {
@@ -136,6 +144,8 @@ export function ProviderFormModal({
     setApiKey('');
     setClearKey(false);
     if (editing) {
+      setVendorId(CUSTOM_VENDOR);
+      setAdvancedOpen(true);
       setId(editing.id);
       setIdDerived(false);
       setName(editing.name);
@@ -144,6 +154,53 @@ export function ProviderFormModal({
       setKeyUrl(editing.keyUrl ?? '');
       setRows(toRows(editing.models));
     } else {
+      // Default to the first catalogue vendor: the common case is "add a known
+      // vendor and paste its key", which then needs no other field.
+      const first = catalog[0];
+      if (first) {
+        setVendorId(first.id);
+        setAdvancedOpen(false);
+        setId(first.id);
+        setIdDerived(false);
+        setName(first.name);
+        setBaseUrl(first.baseUrl);
+        setProtocol(first.protocol);
+        setKeyUrl(first.keyUrl ?? '');
+        setRows(toRows(first.models));
+      } else {
+        setVendorId(CUSTOM_VENDOR);
+        setAdvancedOpen(true);
+        setId('');
+        setIdDerived(true);
+        setName('');
+        setBaseUrl('');
+        setProtocol(protocols[0]?.value ?? AI_PROTOCOLS[0]);
+        setKeyUrl('');
+        setRows([newRow()]);
+      }
+    }
+  }, [open, editing, catalog, protocols]);
+
+  const vendorOptions = useMemo(
+    () => [
+      ...catalog.map((entry) => ({
+        value: entry.id,
+        // Already-added vendors stay visible but marked: the answer to "I want
+        // to change it" is the edit button on its row, not a second copy.
+        label: entry.alreadyAdded ? `${entry.name}（已添加）` : entry.name,
+      })),
+      { value: CUSTOM_VENDOR, label: '自定义提供商' },
+    ],
+    [catalog]
+  );
+
+  /** Switching vendor reseeds the whole form from the catalogue entry. */
+  const handleVendorChange = (value: string) => {
+    setVendorId(value);
+    setError(null);
+    setDiscovered([]);
+    if (value === CUSTOM_VENDOR) {
+      setAdvancedOpen(true);
       setId('');
       setIdDerived(true);
       setName('');
@@ -151,8 +208,19 @@ export function ProviderFormModal({
       setProtocol(protocols[0]?.value ?? AI_PROTOCOLS[0]);
       setKeyUrl('');
       setRows([newRow()]);
+      return;
     }
-  }, [open, editing, protocols]);
+    const entry = catalog.find((e) => e.id === value);
+    if (!entry) return;
+    setAdvancedOpen(false);
+    setId(entry.id);
+    setIdDerived(false);
+    setName(entry.name);
+    setBaseUrl(entry.baseUrl);
+    setProtocol(entry.protocol);
+    setKeyUrl(entry.keyUrl ?? '');
+    setRows(toRows(entry.models));
+  };
 
   const models = fromRows(rows);
 
@@ -176,20 +244,26 @@ export function ProviderFormModal({
       baseUrl: baseUrl.trim(),
       protocol,
       models,
+      // Model enablement is managed from the list's per-model switches, not from
+      // this form, so a save carries the current state through unchanged.
+      disabledModels: isEditing ? (editing?.disabledModels ?? []) : [],
       keyUrl: keyUrl.trim(),
     }),
-    [id, name, baseUrl, protocol, models, keyUrl]
+    [id, name, baseUrl, protocol, models, keyUrl, isEditing, editing]
   );
 
   const validate = useCallback((): string | null => {
     if (!isEditing && !isValidProviderId(id.trim())) {
       return '提供商 ID 需为小写字母、数字、点、下划线或短横线，且以字母或数字开头';
     }
+    if (!isEditing && !isCustom && catalog.find((e) => e.id === vendorId)?.alreadyAdded) {
+      return '该厂商已在列表中，如需修改请使用编辑';
+    }
     if (!name.trim()) return '请填写显示名称';
     if (!/^https?:\/\//i.test(baseUrl.trim())) return 'API 地址需以 http:// 或 https:// 开头';
     if (models.length === 0) return '请至少填写一个模型名称';
     return null;
-  }, [baseUrl, id, isEditing, models.length, name]);
+  }, [baseUrl, catalog, id, isCustom, isEditing, models.length, name, vendorId]);
 
   const handleDiscover = async () => {
     setError(null);
@@ -210,7 +284,7 @@ export function ProviderFormModal({
     }
   };
 
-  /** Append every discovered model that is not already a row. */
+  /** Append a discovered model that is not already a row. */
   const handleAddDiscovered = (modelId: string) => {
     if (models.includes(modelId)) return;
     setRows((prev) => {
@@ -227,15 +301,16 @@ export function ProviderFormModal({
     const message = validate();
     if (message) {
       setError(message);
+      // A validation failure about a hidden field is unactionable — expand the
+      // section so the administrator can see what the error refers to.
+      if (!advancedOpen) setAdvancedOpen(true);
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      // The credential is only ever submitted in edit mode; in add mode the same
-      // field is a throwaway input for model discovery.
       await onSubmit(buildDraft(), {
-        apiKey: isEditing ? apiKey.trim() : '',
+        apiKey: apiKey.trim(),
         clearKey: isEditing && clearKey,
       });
       onClose();
@@ -247,6 +322,113 @@ export function ProviderFormModal({
   };
 
   const pending = discovered.filter((d) => !models.includes(d.id));
+
+  /** The model row editor, shared by the expanded section in every mode. */
+  const modelEditor = (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-medium text-foreground">模型</span>
+        <Button
+          variant="bordered"
+          size="sm"
+          onClick={handleDiscover}
+          isDisabled={discovering}
+          startContent={
+            discovering ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )
+          }
+        >
+          {discovering ? '获取中' : '从接口获取'}
+        </Button>
+      </div>
+
+      <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+        {rows.map((row, index) => (
+          <div key={row.key} className="flex items-center gap-2">
+            <GripVertical className="h-3.5 w-3.5 shrink-0 text-default-300" aria-hidden />
+            <Input
+              value={row.value}
+              onChange={(e) => setRow(row.key, e.target.value)}
+              placeholder={`模型 ${index + 1}`}
+              inputSize="sm"
+            />
+            <Button
+              variant="light"
+              size="sm"
+              isIconOnly
+              aria-label={`移除第 ${index + 1} 个模型`}
+              onClick={() => removeRow(row.key)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <Button
+        variant="light"
+        size="sm"
+        onClick={addRow}
+        startContent={<Plus className="h-3.5 w-3.5" />}
+      >
+        添加模型
+      </Button>
+
+      {pending.length > 0 && (
+        <div className="space-y-2 rounded-[2rem] border border-default-200 bg-content2 px-4 py-3">
+          <p className="text-xs text-default-500">点击加入：</p>
+          <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
+            {pending.slice(0, 40).map((model) => (
+              <Pressable
+                key={model.id}
+                onClick={() => handleAddDiscovered(model.id)}
+                className="rounded-full border border-default-200 px-3 py-1 text-xs text-default-600 hover:border-primary/40 hover:text-foreground"
+              >
+                + {model.id}
+              </Pressable>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const keyField = apiKeyLabel ? (
+    <div className="space-y-2">
+      <Input
+        label={apiKeyLabel}
+        type="password"
+        value={apiKey}
+        onChange={(e) => {
+          setApiKey(e.target.value);
+          if (e.target.value.trim()) setClearKey(false);
+        }}
+        placeholder={apiKeyPlaceholder}
+        autoComplete="off"
+        disabled={clearKey}
+        description={
+          isEditing && editing?.keyConfigured && !clearKey
+            ? '已保存，留空则保持不变'
+            : undefined
+        }
+      />
+      {isEditing && editing?.keyConfigured && (
+        <Pressable
+          onClick={() => setClearKey((v) => !v)}
+          aria-pressed={clearKey}
+          className={cn(
+            'text-xs',
+            clearKey ? 'text-default-500' : 'text-danger hover:underline'
+          )}
+        >
+          {clearKey ? '取消移除，保留已保存的密钥' : '移除已保存的密钥'}
+        </Pressable>
+      )}
+    </div>
+  ) : null;
 
   return (
     <Modal
@@ -267,154 +449,127 @@ export function ProviderFormModal({
       }
     >
       <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="显示名称"
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            placeholder="Acme 网关"
+        {!isEditing && (
+          <Select
+            label="选择厂商"
+            options={vendorOptions}
+            value={vendorId}
+            onChange={(e) => handleVendorChange(e.target.value)}
+            disabled={catalogLoading}
           />
-          <Input
-            label="提供商 ID"
-            value={id}
-            onChange={(e) => {
-              setIdDerived(false);
-              setId(e.target.value);
-            }}
-            disabled={isEditing}
-            placeholder="acme-gw"
-            description={isEditing ? '添加后不可修改' : undefined}
-          />
-        </div>
+        )}
 
-        <Input
-          label="API 地址"
-          value={baseUrl}
-          onChange={(e) => setBaseUrl(e.target.value)}
-          placeholder="https://api.example.com/v1"
-          description="填到版本号即可，系统按协议补全路径"
-        />
-
-        <Select
-          label="接口协议"
-          options={
-            protocols.length > 0
-              ? protocols.map((p) => ({ value: p.value, label: p.label }))
-              : AI_PROTOCOLS.map((p) => ({ value: p, label: AI_PROTOCOL_LABELS[p] }))
-          }
-          value={protocol}
-          onChange={(e) => setProtocol(e.target.value as AIProtocol)}
-        />
-
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-medium text-foreground">模型</span>
-            <Button
-              variant="bordered"
-              size="sm"
-              onClick={handleDiscover}
-              isDisabled={discovering}
-              startContent={
-                discovering ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )
-              }
-            >
-              {discovering ? '获取中' : '从接口获取'}
-            </Button>
-          </div>
-
-          <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-            {rows.map((row, index) => (
-              <div key={row.key} className="flex items-center gap-2">
-                <GripVertical className="h-3.5 w-3.5 shrink-0 text-default-300" aria-hidden />
-                <Input
-                  value={row.value}
-                  onChange={(e) => setRow(row.key, e.target.value)}
-                  placeholder={`模型 ${index + 1}`}
-                  inputSize="sm"
-                />
-                <Button
-                  variant="light"
-                  size="sm"
-                  isIconOnly
-                  aria-label={`移除第 ${index + 1} 个模型`}
-                  onClick={() => removeRow(row.key)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <Button
-            variant="light"
-            size="sm"
-            onClick={addRow}
-            startContent={<Plus className="h-3.5 w-3.5" />}
-          >
-            添加模型
-          </Button>
-
-          {pending.length > 0 && (
-            <div className="space-y-2 rounded-[2rem] border border-default-200 bg-content2 px-4 py-3">
-              <p className="text-xs text-default-500">点击加入：</p>
-              <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
-                {pending.slice(0, 40).map((model) => (
-                  <Pressable
-                    key={model.id}
-                    onClick={() => handleAddDiscovered(model.id)}
-                    className="rounded-full border border-default-200 px-3 py-1 text-xs text-default-600 hover:border-primary/40 hover:text-foreground"
-                  >
-                    + {model.id}
-                  </Pressable>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <Input
-          label="密钥申请地址"
-          value={keyUrl}
-          onChange={(e) => setKeyUrl(e.target.value)}
-          placeholder="https://platform.example.com/api-keys"
-        />
-
-        {apiKeyLabel && (
-          <div className="space-y-2">
-            <Input
-              label={apiKeyLabel}
-              type="password"
-              value={apiKey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-                if (e.target.value.trim()) setClearKey(false);
-              }}
-              placeholder={apiKeyPlaceholder}
-              autoComplete="off"
-              disabled={clearKey}
-              description={
-                isEditing && editing?.keyConfigured && !clearKey
-                  ? '已保存，留空则保持不变'
-                  : undefined
-              }
-            />
-            {isEditing && editing?.keyConfigured && (
+        {/* Adding a catalogue vendor needs only the key; everything else is
+            pre-filled and lives behind this collapsible. */}
+        {!isEditing && !isCustom ? (
+          <>
+            {keyField}
+            <div className="space-y-4">
               <Pressable
-                onClick={() => setClearKey((v) => !v)}
-                aria-pressed={clearKey}
-                className={cn(
-                  'text-xs',
-                  clearKey ? 'text-default-500' : 'text-danger hover:underline'
-                )}
+                onClick={() => setAdvancedOpen((v) => !v)}
+                aria-expanded={advancedOpen}
+                className="flex items-center gap-1.5 text-sm text-default-500 hover:text-foreground"
               >
-                {clearKey ? '取消移除，保留已保存的密钥' : '移除已保存的密钥'}
+                {advancedOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                自定义设置（API 地址、模型列表等）
               </Pressable>
-            )}
-          </div>
+              {advancedOpen && (
+                <div className="space-y-5 border-l-2 border-default-200 pl-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="显示名称"
+                      value={name}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                    />
+                    <Input
+                      label="提供商 ID"
+                      value={id}
+                      disabled
+                      description="与厂商目录一致，不可修改"
+                    />
+                  </div>
+                  <Input
+                    label="API 地址"
+                    value={baseUrl}
+                    onChange={(e) => setBaseUrl(e.target.value)}
+                    description="填到版本号即可，系统按协议补全路径"
+                  />
+                  <Select
+                    label="接口协议"
+                    options={
+                      protocols.length > 0
+                        ? protocols.map((p) => ({ value: p.value, label: p.label }))
+                        : AI_PROTOCOLS.map((p) => ({ value: p, label: AI_PROTOCOL_LABELS[p] }))
+                    }
+                    value={protocol}
+                    onChange={(e) => setProtocol(e.target.value as AIProtocol)}
+                  />
+                  {modelEditor}
+                  <Input
+                    label="密钥申请地址"
+                    value={keyUrl}
+                    onChange={(e) => setKeyUrl(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="显示名称"
+                value={name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                placeholder="Acme 网关"
+              />
+              <Input
+                label="提供商 ID"
+                value={id}
+                onChange={(e) => {
+                  setIdDerived(false);
+                  setId(e.target.value);
+                }}
+                disabled={isEditing}
+                placeholder="acme-gw"
+                description={isEditing ? '添加后不可修改' : undefined}
+              />
+            </div>
+
+            <Input
+              label="API 地址"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://api.example.com/v1"
+              description="填到版本号即可，系统按协议补全路径"
+            />
+
+            <Select
+              label="接口协议"
+              options={
+                protocols.length > 0
+                  ? protocols.map((p) => ({ value: p.value, label: p.label }))
+                  : AI_PROTOCOLS.map((p) => ({ value: p, label: AI_PROTOCOL_LABELS[p] }))
+              }
+              value={protocol}
+              onChange={(e) => setProtocol(e.target.value as AIProtocol)}
+            />
+
+            {modelEditor}
+
+            <Input
+              label="密钥申请地址"
+              value={keyUrl}
+              onChange={(e) => setKeyUrl(e.target.value)}
+              placeholder="https://platform.example.com/api-keys"
+            />
+
+            {keyField}
+          </>
         )}
 
         {error && (

@@ -218,8 +218,15 @@ export async function listProviderCatalog(): Promise<CatalogPayload> {
   return res.json();
 }
 
-export async function createProvider(draft: ProviderDraft): Promise<ProviderListPayload> {
-  const res = await apiPost('/api/ai/providers', draft);
+export async function createProvider(
+  draft: ProviderDraft,
+  key?: { apiKey?: string }
+): Promise<ProviderListPayload> {
+  // The add form saves the credential together with the definition, so a
+  // provider is usable the moment it appears in the list.
+  const body: Record<string, unknown> = { ...draft };
+  if (key?.apiKey) body.apiKey = key.apiKey;
+  const res = await apiPost('/api/ai/providers', body);
   if (!res.ok) throw new Error(await readError(res, '添加提供商失败'));
   return res.json();
 }

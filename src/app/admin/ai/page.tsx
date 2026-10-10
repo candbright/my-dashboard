@@ -13,7 +13,6 @@ import {
   useToast,
 } from '@/components/ui';
 import {
-  ProviderCatalogModal,
   ProviderList,
 } from '@/components/ai/ProviderList';
 import { ProviderFormModal } from '@/components/ai/ProviderFormModal';
@@ -62,12 +61,12 @@ export default function AdminAIGlobalPage() {
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
 
-  const [catalogOpen, setCatalogOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-  const [formSeed, setFormSeed] = useState<ProviderDraft | null>(null);
   const [editing, setEditing] = useState<ProviderView | null>(null);
   const [deleting, setDeleting] = useState<ProviderView | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  /** `${providerId}:${model}` whose enable-switch is mid-save. */
+  const [modelBusy, setModelBusy] = useState<string | null>(null);
 
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -108,8 +107,10 @@ export default function AdminAIGlobalPage() {
     void load();
   }, [load]);
 
-  const openCatalog = async () => {
-    setCatalogOpen(true);
+  /** Open the add form, lazily loading the vendor catalogue for its dropdown. */
+  const openAdd = async () => {
+    setEditing(null);
+    setFormOpen(true);
     if (catalog.length > 0) return;
     setCatalogLoading(true);
     try {
@@ -122,37 +123,8 @@ export default function AdminAIGlobalPage() {
     }
   };
 
-  const openCustomForm = () => {
-    setCatalogOpen(false);
-    setEditing(null);
-    setFormSeed(null);
-    setFormOpen(true);
-  };
-
-  const openCatalogEntry = (entry: CatalogEntry) => {
-    setCatalogOpen(false);
-    setEditing(null);
-    setFormSeed({
-      id: entry.id,
-      name: entry.name,
-      baseUrl: entry.baseUrl,
-      protocol: entry.protocol,
-      models: entry.models,
-      keyUrl: entry.keyUrl ?? '',
-    });
-    setFormOpen(true);
-  };
-
   const openEdit = (provider: ProviderView) => {
     setEditing(provider);
-    setFormSeed({
-      id: provider.id,
-      name: provider.name,
-      baseUrl: provider.baseUrl,
-      protocol: provider.protocol,
-      models: provider.models,
-      keyUrl: provider.keyUrl ?? '',
-    });
     setFormOpen(true);
   };
 
@@ -162,7 +134,7 @@ export default function AdminAIGlobalPage() {
   ) => {
     const payload = editing
       ? await updateProvider(editing.id, draft, key)
-      : await createProvider(draft);
+      : await createProvider(draft, { apiKey: key.apiKey });
     applyList(payload);
     // The catalogue's "already added" flags are now stale; drop the cache so the
     // next open reflects reality instead of greying out the wrong entries.
@@ -170,6 +142,36 @@ export default function AdminAIGlobalPage() {
     addToast('success', editing ? '提供商已更新' : '提供商已添加');
     const refreshed = await getGlobalAI();
     setGlobalState(refreshed);
+  };
+
+  /**
+   * One model's enable switch. This writes the whole definition back with the
+   * flipped flag: there is no narrower endpoint, and the definition is small
+   * enough that replacing it is simpler than a patch protocol.
+   */
+  const handleToggleModel = async (provider: ProviderView, model: string, enabled: boolean) => {
+    setModelBusy(`${provider.id}:${model}`);
+    try {
+      const disabled = new Set(provider.disabledModels ?? []);
+      if (enabled) disabled.delete(model);
+      else disabled.add(model);
+      const payload = await updateProvider(provider.id, {
+        id: provider.id,
+        name: provider.name,
+        baseUrl: provider.baseUrl,
+        protocol: provider.protocol,
+        models: provider.models,
+        disabledModels: [...disabled],
+        keyUrl: provider.keyUrl ?? '',
+      });
+      applyList(payload);
+      const refreshed = await getGlobalAI();
+      setGlobalState(refreshed);
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : '更新模型状态失败');
+    } finally {
+      setModelBusy(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -347,7 +349,7 @@ export default function AdminAIGlobalPage() {
               <Button
                 variant="bordered"
                 size="sm"
-                onClick={openCatalog}
+                onClick={openAdd}
                 startContent={<Plus className="h-3.5 w-3.5" />}
               >
                 添加提供商
@@ -362,7 +364,9 @@ export default function AdminAIGlobalPage() {
               canManage
               onEdit={openEdit}
               onDelete={setDeleting}
-              onAdd={openCatalog}
+              onAdd={openAdd}
+              onToggleModel={handleToggleModel}
+              modelBusy={modelBusy}
               emptyHint="还没有添加提供商。点击「添加提供商」，从第三方厂商目录中选择，或自行填写。"
             />
           </Card>
@@ -386,31 +390,24 @@ export default function AdminAIGlobalPage() {
         </div>
       </motion.div>
 
-      <ProviderCatalogModal
-        open={catalogOpen}
-        onClose={() => setCatalogOpen(false)}
-        catalog={catalog}
-        loading={catalogLoading}
-        onPick={openCatalogEntry}
-        onCustom={openCustomForm}
-      />
-
       <ProviderFormModal
         open={formOpen}
         onClose={() => setFormOpen(false)}
         editing={editing}
+        catalog={catalog}
+        catalogLoading={catalogLoading}
         protocols={protocols}
         onSubmit={handleSubmitProvider}
         onDiscover={handleDiscover}
         apiKeyLabel={
-          editing ? `「${editing.name}」的全局 API Key` : '临时 API Key（可选）'
+          editing ? `「${editing.name}」的全局 API Key` : 'API Key（可选）'
         }
         apiKeyPlaceholder={
           editing
             ? editing.keyConfigured
               ? '已保存，重新填写可覆盖'
               : '粘贴 API Key'
-            : '用于立即拉取该提供商的模型列表'
+            : '粘贴厂商的 API Key，保存后立即生效'
         }
       />
 
