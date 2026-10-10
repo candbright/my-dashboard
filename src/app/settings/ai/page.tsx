@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   KeyRound,
   Plug,
+  Plus,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -25,27 +26,39 @@ import {
   useToast,
 } from '@/components/ui';
 import { ProviderList } from '@/components/ai/ProviderList';
+import { ProviderFormModal } from '@/components/ai/ProviderFormModal';
 import { cn } from '@/lib/cn';
 import {
   clearUserAI,
+  createProvider,
+  deleteProvider,
   discoverModels,
   getUserAI,
+  listProviderCatalog,
   listProviders,
   saveUserAI,
   setUserGlobalAI,
   submitApproval,
   testConnection,
+  updateProvider,
 } from '@/lib/api-client';
-import type { ProviderView, UserAIState } from '@/lib/ai-providers';
+import type {
+  AIProtocol,
+  CatalogEntry,
+  ProviderDraft,
+  ProviderView,
+  UserAIState,
+} from '@/lib/ai-providers';
 
 /**
  * API 配置 — the AI settings page every signed-in account sees.
  *
- * Administrators and ordinary users get the identical page: the shared provider
- * list, a personal provider plus key, and the global-API switch. Nothing here is
- * privileged, which is deliberate — an administrator's personal AI settings are
- * personal, and keeping them on this page is what stops the global configuration
- * page from silently doubling as somebody's private settings.
+ * Administrators and ordinary users get the identical page: the provider list,
+ * a personal provider plus key, and the global-API switch. Users add providers
+ * with the same form the administrator uses globally — but what they create is
+ * THEIR configuration: personal providers are visible to nobody else and never
+ * touch the shared list. The scopes differ in where they take effect, not in
+ * how they are created.
  */
 export default function UserAISettingsPage() {
   const { user, isGuest, loading: authLoading } = useAuth();
@@ -55,6 +68,7 @@ export default function UserAISettingsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [state, setState] = useState<UserAIState | null>(null);
   const [providers, setProviders] = useState<ProviderView[]>([]);
+  const [protocols, setProtocols] = useState<{ value: AIProtocol; label: string }[]>([]);
 
   const [selectedProvider, setSelectedProvider] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -71,6 +85,16 @@ export default function UserAISettingsPage() {
   const [showClear, setShowClear] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
 
+  // Personal provider management — the same add/edit flow as the admin page,
+  // scoped to the caller.
+  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<ProviderView | null>(null);
+  const [deleting, setDeleting] = useState<ProviderView | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [modelBusy, setModelBusy] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
@@ -78,6 +102,7 @@ export default function UserAISettingsPage() {
       const [config, list] = await Promise.all([getUserAI(), listProviders()]);
       setState(config);
       setProviders(list.providers);
+      setProtocols(list.protocols);
       // Only providers someone added are selectable. The server also returns the
       // built-in catalogue, but that belongs in the add-provider picker: listing
       // it would offer thirteen vendors this deployment has no key for.
@@ -96,8 +121,93 @@ export default function UserAISettingsPage() {
     else if (!authLoading) setLoading(false);
   }, [authLoading, user, isGuest, load]);
 
-  /** Only the providers someone actually added. */
+  /** The providers this user may pick: the shared list plus their own. */
   const addedProviders = useMemo(() => providers.filter((p) => p.added), [providers]);
+
+  /** Refresh list + state after a personal-scope mutation. */
+  const refreshAfterMutation = useCallback(
+    async (payload: { providers: ProviderView[]; protocols: { value: AIProtocol; label: string }[] }) => {
+      setProviders(payload.providers);
+      setProtocols(payload.protocols);
+      const config = await getUserAI();
+      setState(config);
+    },
+    []
+  );
+
+  /** Open the add form, lazily loading the vendor catalogue for its dropdown. */
+  const openAdd = async () => {
+    setEditing(null);
+    setFormOpen(true);
+    if (catalog.length > 0) return;
+    setCatalogLoading(true);
+    try {
+      const payload = await listProviderCatalog();
+      setCatalog(payload.catalog);
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : '获取目录失败');
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
+  const openEdit = (provider: ProviderView) => {
+    setEditing(provider);
+    setFormOpen(true);
+  };
+
+  /** Create/update a PERSONAL provider — same form as the admin's, own config. */
+  const handleSubmitProvider = async (
+    draft: ProviderDraft,
+    key: { apiKey: string; clearKey: boolean }
+  ) => {
+    const payload = editing
+      ? await updateProvider(editing.id, draft, key, 'personal')
+      : await createProvider(draft, { apiKey: key.apiKey }, 'personal');
+    await refreshAfterMutation(payload);
+    setCatalog([]);
+    addToast('success', editing ? '提供商已更新' : '提供商已添加');
+  };
+
+  const handleDeleteProvider = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      const payload = await deleteProvider(deleting.id, 'personal');
+      await refreshAfterMutation(payload);
+      setCatalog([]);
+      if (selectedProvider === deleting.id) setSelectedProvider('');
+      addToast('success', '提供商已删除');
+      setDeleting(null);
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : '删除失败');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  /** Switch the one enabled model — only allowed on the caller's own entries. */
+  const handleSetActiveModel = async (provider: ProviderView, next: string) => {
+    if (!provider.manageable || (provider.activeModel || provider.models[0]) === next) return;
+    setModelBusy(`${provider.id}:${next}`);
+    try {
+      const payload = await updateProvider(provider.id, {
+        id: provider.id,
+        name: provider.name,
+        baseUrl: provider.baseUrl,
+        protocol: provider.protocol,
+        models: provider.models,
+        activeModel: next,
+        keyUrl: provider.keyUrl ?? '',
+      }, undefined, 'personal');
+      setProviders(payload.providers);
+      setProtocols(payload.protocols);
+    } catch (err) {
+      addToast('error', err instanceof Error ? err.message : '切换模型失败');
+    } finally {
+      setModelBusy(null);
+    }
+  };
 
   /**
    * The personal section is read-only while the global API is on.
@@ -227,9 +337,11 @@ export default function UserAISettingsPage() {
       baseUrl: draft.baseUrl,
       protocol: draft.protocol,
       apiKey: key,
-      // Only this account's own credential may be reused; the global key is not
-      // this page's to spend on discovery.
-      useStoredKey: !key && draft.id === state?.personalProviderId,
+      // The stored credential may be reused when the user already filed one for
+      // this provider; the server never lends them the shared key.
+      useStoredKey:
+        !key &&
+        providers.some((p) => p.id === draft.id && p.scope === 'personal' && p.keyConfigured),
     });
     return result.models;
   };
@@ -403,15 +515,26 @@ export default function UserAISettingsPage() {
 
           {/* Personal provider */}
           <Card variant="bordered" className={cn('p-6', personalLocked && 'opacity-60')}>
-            <div className="mb-4">
-              <h3 className="font-serif text-base font-semibold text-foreground">
-                个人 API 配置
-              </h3>
-              <p className="mt-1 text-sm text-default-500">
-                {personalLocked
-                  ? '全局 API 已开启，以下配置暂不生效。关闭全局 API 后即可修改。'
-                  : '全局 API 未开启时，AI 请求使用这里选择的提供商与你的密钥。'}
-              </p>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="font-serif text-base font-semibold text-foreground">
+                  个人 API 配置
+                </h3>
+                <p className="mt-1 text-sm text-default-500">
+                  {personalLocked
+                    ? '全局 API 已开启，以下配置暂不生效。关闭全局 API 后即可修改。'
+                    : '全局 API 未开启时，AI 请求使用这里选择的提供商与你的密钥。'}
+                </p>
+              </div>
+              <Button
+                variant="bordered"
+                size="sm"
+                onClick={openAdd}
+                isDisabled={personalLocked}
+                startContent={<Plus className="h-3.5 w-3.5" />}
+              >
+                添加提供商
+              </Button>
             </div>
 
             <ProviderList
@@ -419,7 +542,13 @@ export default function UserAISettingsPage() {
               mode="personal"
               selectedId={selectedProvider}
               onSelect={personalLocked ? undefined : setSelectedProvider}
-              emptyHint="管理员还没有添加提供商，请联系管理员。"
+              canManage={!personalLocked}
+              onEdit={openEdit}
+              onDelete={setDeleting}
+              onAdd={openAdd}
+              onSetActiveModel={handleSetActiveModel}
+              modelBusy={modelBusy}
+              emptyHint="还没有可用的提供商。点击「添加提供商」，从第三方厂商目录中选择，或自行填写。"
             />
 
             <div className="mt-5 space-y-4 rounded-[2rem] border border-default-200 bg-content2 p-4">
@@ -431,9 +560,11 @@ export default function UserAISettingsPage() {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={
-                  state?.hasPersonalKey && selected?.id === state.personalProviderId
+                  selected?.scope === 'personal' && selected.keyConfigured
                     ? '已保存，留空则保持不变'
-                    : `粘贴「${selected?.name ?? '所选提供商'}」的 API Key`
+                    : state?.hasPersonalKey && selected?.id === state.personalProviderId
+                      ? '已保存，留空则保持不变'
+                      : `粘贴「${selected?.name ?? '所选提供商'}」的 API Key`
                 }
               />
 
@@ -471,11 +602,41 @@ export default function UserAISettingsPage() {
 
             <p className="mt-4 flex items-start gap-2 text-xs text-default-400">
               <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              提供商列表由管理员维护，需要新增厂商请联系管理员。
+              标有「个人」的提供商只有你自己可见；其余由管理员维护。
             </p>
           </Card>
         </div>
       </motion.div>
+
+      <ProviderFormModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        editing={editing}
+        catalog={catalog}
+        catalogLoading={catalogLoading}
+        protocols={protocols}
+        onSubmit={handleSubmitProvider}
+        onDiscover={handleDiscover}
+        apiKeyLabel={editing ? `「${editing.name}」的个人 API Key` : 'API Key（可选）'}
+        apiKeyPlaceholder={
+          editing
+            ? editing.keyConfigured
+              ? '已保存，重新填写可覆盖'
+              : '粘贴 API Key'
+            : '粘贴厂商的 API Key，保存后立即生效'
+        }
+      />
+
+      <ConfirmModal
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDeleteProvider}
+        title="删除提供商"
+        message={`删除「${deleting?.name ?? ''}」后，其密钥与选择状态会一并清除。此操作不可撤销。`}
+        confirmLabel="删除"
+        danger
+        loading={deleteBusy}
+      />
 
       <ConfirmModal
         open={showClear}

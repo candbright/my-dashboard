@@ -53,6 +53,14 @@ export interface ProviderView {
    * providers, which is what keeps the built-in vendors inside the picker.
    */
   added: boolean;
+  /**
+   * "personal" = the caller's own entry (visible to nobody else), "global" =
+   * the shared list an administrator maintains. Same creation flow, different
+   * configurations.
+   */
+  scope: 'global' | 'personal';
+  /** Whether the CALLER may edit/delete/retoggle this row. */
+  manageable: boolean;
   /** Whether the server holds a credential for this provider. */
   keyConfigured: boolean;
   /** Whether this is the provider the global API spends. */

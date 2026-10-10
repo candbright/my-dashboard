@@ -218,15 +218,26 @@ export async function listProviderCatalog(): Promise<CatalogPayload> {
   return res.json();
 }
 
+/**
+ * Provider CRUD comes in two scopes that share one wire shape: `/api/ai/providers`
+ * is the administrator-maintained shared list, `/api/ai/user/providers` is the
+ * caller's own. The creation flow is identical; the configuration is not.
+ */
+type ProviderScope = 'global' | 'personal';
+
+const scopeBase = (scope: ProviderScope) =>
+  scope === 'personal' ? '/api/ai/user/providers' : '/api/ai/providers';
+
 export async function createProvider(
   draft: ProviderDraft,
-  key?: { apiKey?: string }
+  key?: { apiKey?: string },
+  scope: ProviderScope = 'global'
 ): Promise<ProviderListPayload> {
   // The add form saves the credential together with the definition, so a
   // provider is usable the moment it appears in the list.
   const body: Record<string, unknown> = { ...draft };
   if (key?.apiKey) body.apiKey = key.apiKey;
-  const res = await apiPost('/api/ai/providers', body);
+  const res = await apiPost(scopeBase(scope), body);
   if (!res.ok) throw new Error(await readError(res, '添加提供商失败'));
   return res.json();
 }
@@ -234,20 +245,24 @@ export async function createProvider(
 export async function updateProvider(
   id: string,
   draft: ProviderDraft,
-  key?: { apiKey?: string; clearKey?: boolean }
+  key?: { apiKey?: string; clearKey?: boolean },
+  scope: ProviderScope = 'global'
 ): Promise<ProviderListPayload> {
-  // The shared credential rides along with the definition: the edit form manages
+  // The credential rides along with the definition: the edit form manages
   // both, and filing a key is meaningless if the definition update failed.
   const body: Record<string, unknown> = { ...draft };
   if (key?.clearKey) body.clearKey = true;
   else if (key?.apiKey) body.apiKey = key.apiKey;
-  const res = await apiPut(`/api/ai/providers/${encodeURIComponent(id)}`, body);
+  const res = await apiPut(`${scopeBase(scope)}/${encodeURIComponent(id)}`, body);
   if (!res.ok) throw new Error(await readError(res, '保存提供商失败'));
   return res.json();
 }
 
-export async function deleteProvider(id: string): Promise<ProviderListPayload> {
-  const res = await apiDelete(`/api/ai/providers/${encodeURIComponent(id)}`);
+export async function deleteProvider(
+  id: string,
+  scope: ProviderScope = 'global'
+): Promise<ProviderListPayload> {
+  const res = await apiDelete(`${scopeBase(scope)}/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(await readError(res, '删除提供商失败'));
   return res.json();
 }

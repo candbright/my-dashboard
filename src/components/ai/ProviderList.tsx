@@ -16,13 +16,14 @@ interface ProviderListProps {
   providers: ProviderView[];
   loading?: boolean;
   /**
-   * What selecting a row means.
+   * What selecting a row means — and which scope this page manages.
    *
    * `global` picks the provider the shared credential is spent on; `personal`
    * picks the caller's own. They are separate choices on the administrator's
    * page — an administrator may set the global provider to something they would
    * not personally choose — so the list has to be told which one it is editing
-   * rather than guessing from the viewer's role.
+   * rather than guessing from the viewer's role. The mode also scopes the
+   * management affordances: a page edits only entries of its own scope.
    */
   mode: 'global' | 'personal';
   /** Id currently selected for this mode. */
@@ -60,6 +61,7 @@ interface ProviderListProps {
 export function ProviderList({
   providers,
   loading = false,
+  mode,
   selectedId,
   onSelect,
   canManage = false,
@@ -108,6 +110,15 @@ export function ProviderList({
           const selectable = Boolean(onSelect) && provider.selectable;
           // Exactly one model is enabled: the explicit choice, else the first.
           const active = provider.activeModel || provider.models[0] || '';
+          // Management affordances are per-row AND per-page: a page only ever
+          // edits entries of its own scope (the user page manages personal
+          // entries, the admin page the shared ones), and the server's
+          // `manageable` flag decides whether the caller may manage it at all.
+          // So an administrator's global rows stay read-only on their personal
+          // settings page — that list is edited on the admin page.
+          const manageable =
+            canManage && provider.manageable &&
+            (mode === 'personal' ? provider.scope === 'personal' : provider.scope === 'global');
           return (
             <div
               key={provider.id}
@@ -138,6 +149,11 @@ export function ProviderList({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="truncate font-medium text-foreground">{provider.name}</span>
+                    {provider.scope === 'personal' && (
+                      <Chip variant="flat" color="primary" size="sm">
+                        个人
+                      </Chip>
+                    )}
                     {provider.isGlobalActive && (
                       <Chip variant="flat" color="secondary" size="sm">
                         全局 API 使用
@@ -170,7 +186,7 @@ export function ProviderList({
                   )}
                   {renderStatus?.(provider)}
 
-                  {canManage && (
+                  {manageable && (
                     <>
                       <Button
                         variant="light"
@@ -220,7 +236,7 @@ export function ProviderList({
                           onChange={() => {
                             if (!isActive) onSetActiveModel?.(provider, model);
                           }}
-                          disabled={!onSetActiveModel || isActive || busy}
+                          disabled={!onSetActiveModel || !manageable || isActive || busy}
                           label={`${provider.name} 的模型 ${model}`}
                         />
                       </span>

@@ -80,14 +80,17 @@ export default function AdminAIGlobalPage() {
   );
 
   /**
-   * Only the providers someone actually added.
+   * Only the providers someone actually added to the SHARED list.
    *
    * The server returns the whole directory — the built-in catalogue included —
-   * because the picker needs it. Rendering all of it listed thirteen vendors this
-   * deployment does not use, which read as "these are configured" and pushed the
-   * added ones out of sight. The catalogue belongs in the picker.
+   * because the picker needs it, plus the caller's own personal entries. The
+   * catalogue stays in the picker, and personal entries belong to the user
+   * settings page: this page manages the deployment's shared configuration.
    */
-  const addedProviders = useMemo(() => providers.filter((p) => p.added), [providers]);
+  const addedProviders = useMemo(
+    () => providers.filter((p) => p.added && p.scope === 'global'),
+    [providers]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
