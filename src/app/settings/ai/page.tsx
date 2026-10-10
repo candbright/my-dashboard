@@ -25,6 +25,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { ProviderList } from '@/components/ai/ProviderList';
+import { cn } from '@/lib/cn';
 import {
   clearUserAI,
   discoverModels,
@@ -77,7 +78,11 @@ export default function UserAISettingsPage() {
       const [config, list] = await Promise.all([getUserAI(), listProviders()]);
       setState(config);
       setProviders(list.providers);
-      setSelectedProvider(config.personalProviderId || config.providers[0]?.id || '');
+      // Only providers someone added are selectable. The server also returns the
+      // built-in catalogue, but that belongs in the add-provider picker: listing
+      // it would offer thirteen vendors this deployment has no key for.
+      const added = list.providers.filter((p) => p.added);
+      setSelectedProvider(config.personalProviderId || added[0]?.id || '');
       setModel(config.model || '');
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : '加载失败');
@@ -91,9 +96,22 @@ export default function UserAISettingsPage() {
     else if (!authLoading) setLoading(false);
   }, [authLoading, user, isGuest, load]);
 
+  /** Only the providers someone actually added. */
+  const addedProviders = useMemo(() => providers.filter((p) => p.added), [providers]);
+
+  /**
+   * The personal section is read-only while the global API is on.
+   *
+   * This mirrors what the resolver actually does: with the switch on, AI requests
+   * go to the shared credential and the personal record is not consulted at all.
+   * Leaving the fields editable invited the user to "fix" settings that had no
+   * effect.
+   */
+  const personalLocked = Boolean(state?.globalApiEnabled && state?.holdsGrant);
+
   const selected = useMemo(
-    () => providers.find((p) => p.id === selectedProvider) ?? null,
-    [providers, selectedProvider]
+    () => addedProviders.find((p) => p.id === selectedProvider) ?? null,
+    [addedProviders, selectedProvider]
   );
 
   // An empty list is itself a selectable option: it means "use the provider's
@@ -333,8 +351,7 @@ export default function UserAISettingsPage() {
                   全局 API
                 </h3>
                 <p className="mt-1 text-sm text-default-500">
-                  由管理员统一配置密钥。这是一项需要审批的权限：申请通过后可以直接
-                  使用共享密钥，无需自己申请 Key。
+                  由管理员统一配置，需要申请后使用。
                 </p>
 
                 <div className="mt-4 space-y-3">
@@ -357,26 +374,20 @@ export default function UserAISettingsPage() {
                           全局 API 尚未配置完成，请联系管理员。
                         </p>
                       )}
-                      <p className="text-xs text-default-400">
-                        开启后一律使用全局 API，你保存的个人配置会保留但暂时不生效。
-                      </p>
                     </>
                   ) : state?.hasPendingRequest ? (
                     <div className="rounded-[2rem] border border-default-200 bg-content2 p-4">
                       <p className="text-sm text-default-600">
-                        你的申请正在等待管理员审批。
+                        申请已提交，等待管理员审批。
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-3 rounded-[2rem] border border-default-200 bg-content2 p-4">
-                      <p className="text-sm text-default-600">
-                        你还没有全局 API 的使用权限，可以提交申请：
-                      </p>
                       <Textarea
                         value={applyReason}
                         onChange={(e) => setApplyReason(e.target.value)}
                         placeholder="说明使用用途，便于管理员审批（可选）"
-                        rows={3}
+                        rows={2}
                       />
                       <Button color="primary" size="sm" onClick={handleApply} isLoading={applying}>
                         申请使用全局 API
@@ -389,21 +400,24 @@ export default function UserAISettingsPage() {
           </Card>
 
           {/* Personal provider */}
-          <Card variant="bordered" className="p-6">
+          <Card variant="bordered" className={cn('p-6', personalLocked && 'opacity-60')}>
             <div className="mb-4">
               <h3 className="font-serif text-base font-semibold text-foreground">
                 个人 API 配置
               </h3>
               <p className="mt-1 text-sm text-default-500">
-                未使用全局 API 时，AI 请求使用这里选择的提供商与你的密钥。
+                {personalLocked
+                  ? '全局 API 已开启，以下配置暂不生效。关闭全局 API 后即可修改。'
+                  : '全局 API 未开启时，AI 请求使用这里选择的提供商与你的密钥。'}
               </p>
             </div>
 
             <ProviderList
-              providers={providers}
+              providers={addedProviders}
               mode="personal"
               selectedId={selectedProvider}
-              onSelect={setSelectedProvider}
+              onSelect={personalLocked ? undefined : setSelectedProvider}
+              emptyHint="管理员还没有添加提供商，请联系管理员。"
             />
 
             <div className="mt-5 space-y-4 rounded-[2rem] border border-default-200 bg-content2 p-4">
@@ -411,6 +425,7 @@ export default function UserAISettingsPage() {
                 label="个人 API Key"
                 type="password"
                 autoComplete="off"
+                disabled={personalLocked}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={
@@ -418,21 +433,27 @@ export default function UserAISettingsPage() {
                     ? '已保存，留空则保持不变'
                     : `粘贴「${selected?.name ?? '所选提供商'}」的 API Key`
                 }
-                description="密钥仅用于服务端调用模型，保存后不会再回显"
               />
 
               <Select
                 label="默认模型"
                 options={modelOptions}
                 value={model}
+                disabled={personalLocked}
                 onChange={(e) => setModel(e.target.value)}
               />
 
               <div className="flex flex-wrap gap-2">
-                <Button color="primary" size="sm" onClick={() => handleSave(false)} isLoading={saving}>
+                <Button
+                  color="primary"
+                  size="sm"
+                  onClick={() => handleSave(false)}
+                  isLoading={saving}
+                  isDisabled={personalLocked}
+                >
                   保存配置
                 </Button>
-                {state?.hasPersonalKey && (
+                {state?.hasPersonalKey && !personalLocked && (
                   <Button
                     variant="light"
                     color="danger"
@@ -448,7 +469,7 @@ export default function UserAISettingsPage() {
 
             <p className="mt-4 flex items-start gap-2 text-xs text-default-400">
               <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              提供商列表由管理员统一维护；如需新增厂商，请联系管理员。
+              提供商列表由管理员维护，需要新增厂商请联系管理员。
             </p>
           </Card>
         </div>

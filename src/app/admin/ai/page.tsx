@@ -1,14 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, KeyRound, Plug, ShieldCheck, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plug, Plus, ShieldCheck } from 'lucide-react';
 import {
   Button,
   Card,
   Chip,
   ConfirmModal,
-  Input,
   Spinner,
   ToastContainer,
   useToast,
@@ -26,7 +25,6 @@ import {
   listProviderCatalog,
   listProviders,
   saveGlobalAI,
-  clearGlobalAIKey,
   testConnection,
   updateProvider,
 } from '@/lib/api-client';
@@ -71,8 +69,6 @@ export default function AdminAIGlobalPage() {
   const [deleting, setDeleting] = useState<ProviderView | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const [keyDraft, setKeyDraft] = useState('');
-  const [keySaving, setKeySaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
 
@@ -83,6 +79,16 @@ export default function AdminAIGlobalPage() {
     },
     []
   );
+
+  /**
+   * Only the providers someone actually added.
+   *
+   * The server returns the whole directory — the built-in catalogue included —
+   * because the picker needs it. Rendering all of it listed thirteen vendors this
+   * deployment does not use, which read as "these are configured" and pushed the
+   * added ones out of sight. The catalogue belongs in the picker.
+   */
+  const addedProviders = useMemo(() => providers.filter((p) => p.added), [providers]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -150,9 +156,12 @@ export default function AdminAIGlobalPage() {
     setFormOpen(true);
   };
 
-  const handleSubmitProvider = async (draft: ProviderDraft) => {
+  const handleSubmitProvider = async (
+    draft: ProviderDraft,
+    key: { apiKey: string; clearKey: boolean }
+  ) => {
     const payload = editing
-      ? await updateProvider(editing.id, draft)
+      ? await updateProvider(editing.id, draft, key)
       : await createProvider(draft);
     applyList(payload);
     // The catalogue's "already added" flags are now stale; drop the cache so the
@@ -200,46 +209,6 @@ export default function AdminAIGlobalPage() {
     }
   };
 
-  const handleSaveKey = async () => {
-    if (!globalState?.activeProviderId) {
-      addToast('error', '请先选择全局 API 使用的提供商');
-      return;
-    }
-    if (!keyDraft.trim()) {
-      addToast('error', '请填写 API Key');
-      return;
-    }
-    setKeySaving(true);
-    try {
-      const next = await saveGlobalAI({
-        providerId: globalState.activeProviderId,
-        apiKey: keyDraft.trim(),
-      });
-      setGlobalState((prev) => (prev ? { ...prev, ...next } : prev));
-      setKeyDraft('');
-      const list = await listProviders();
-      applyList(list);
-      addToast('success', 'API Key 已保存');
-    } catch (err) {
-      addToast('error', err instanceof Error ? err.message : '保存失败');
-    } finally {
-      setKeySaving(false);
-    }
-  };
-
-  const handleClearKey = async () => {
-    try {
-      await clearGlobalAIKey();
-      const next = await getGlobalAI();
-      setGlobalState(next);
-      const list = await listProviders();
-      applyList(list);
-      addToast('success', '已移除全局 API Key');
-    } catch (err) {
-      addToast('error', err instanceof Error ? err.message : '移除失败');
-    }
-  };
-
   const handleTest = async () => {
     if (!globalState?.activeProviderId) return;
     setTesting(true);
@@ -262,9 +231,10 @@ export default function AdminAIGlobalPage() {
       baseUrl: draft.baseUrl,
       protocol: draft.protocol,
       apiKey,
-      // The administrator's own credential on disk is the global one, so a saved
-      // provider can be refreshed without re-entering a key the browser never had.
-      useStoredKey: !apiKey && draft.id === globalState?.activeProviderId,
+      // Any provider with a stored credential can be refreshed without re-entering
+      // the key, not just the active one — the key belongs to the provider.
+      useStoredKey:
+        !apiKey && providers.some((p) => p.id === draft.id && p.keyConfigured),
     });
     return result.models;
   };
@@ -305,7 +275,7 @@ export default function AdminAIGlobalPage() {
       >
         <h1 className="text-2xl font-bold tracking-tight mb-1">API 全局设置</h1>
         <p className="text-sm text-default-500 mb-8">
-          配置全体用户可申请的共享 AI 凭据，以及整个平台可用的提供商列表
+          配置全体用户可申请的共享 AI 凭据，以及平台可用的提供商列表
         </p>
 
         <div className="space-y-6">
@@ -325,7 +295,7 @@ export default function AdminAIGlobalPage() {
                       ? `当前使用「${globalState.activeProviderName || globalState.activeProviderId}」${
                           globalState.model ? ` · ${globalState.model}` : ''
                         }`
-                      : '尚未完成配置：需要选择一个提供商并填写 API Key'}
+                      : '尚未完成配置：请选择提供商并填写 API Key'}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {globalState?.ready ? (
@@ -335,15 +305,6 @@ export default function AdminAIGlobalPage() {
                     ) : (
                       <Chip variant="flat" color="warning" size="sm">
                         未就绪
-                      </Chip>
-                    )}
-                    {globalState?.encryptionReady ? (
-                      <Chip variant="flat" color="default" size="sm">
-                        密钥已加密存储
-                      </Chip>
-                    ) : (
-                      <Chip variant="flat" color="danger" size="sm">
-                        加密不可用
                       </Chip>
                     )}
                     {(globalState?.pendingRequests.length ?? 0) > 0 && (
@@ -380,21 +341,21 @@ export default function AdminAIGlobalPage() {
                   全局 API 使用的提供商
                 </h3>
                 <p className="mt-1 text-sm text-default-500">
-                  用户开启「使用全局 API」后，AI 请求会使用这里的提供商与密钥。
+                  用户开启「使用全局 API」后，请求会走这里选中的提供商。
                 </p>
               </div>
               <Button
                 variant="bordered"
                 size="sm"
                 onClick={openCatalog}
-                startContent={<KeyRound className="h-3.5 w-3.5" />}
+                startContent={<Plus className="h-3.5 w-3.5" />}
               >
                 添加提供商
               </Button>
             </div>
 
             <ProviderList
-              providers={providers}
+              providers={addedProviders}
               mode="global"
               selectedId={globalState?.activeProviderId ?? ''}
               onSelect={handleSelectGlobal}
@@ -402,49 +363,7 @@ export default function AdminAIGlobalPage() {
               onEdit={openEdit}
               onDelete={setDeleting}
               onAdd={openCatalog}
-              action={
-                <div className="rounded-[2rem] border border-default-200 bg-content2 p-4">
-                  <Input
-                    label="全局 API Key"
-                    type="password"
-                    autoComplete="off"
-                    value={keyDraft}
-                    onChange={(e) => setKeyDraft(e.target.value)}
-                    placeholder={
-                      globalState?.hasKey
-                        ? '已配置，重新填写可覆盖'
-                        : `粘贴「${
-                            globalState?.activeProviderName ||
-                            globalState?.activeProviderId ||
-                            '所选提供商'
-                          }」的 API Key`
-                    }
-                    description="密钥仅用于服务端调用模型，保存后不会再回显"
-                  />
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      color="primary"
-                      size="sm"
-                      onClick={handleSaveKey}
-                      isLoading={keySaving}
-                      isDisabled={!globalState?.activeProviderId}
-                    >
-                      {globalState?.hasKey ? '覆盖密钥' : '保存密钥'}
-                    </Button>
-                    {globalState?.hasKey && (
-                      <Button
-                        variant="light"
-                        color="danger"
-                        size="sm"
-                        onClick={handleClearKey}
-                        startContent={<Trash2 className="h-3.5 w-3.5" />}
-                      >
-                        移除密钥
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              }
+              emptyHint="还没有添加提供商。点击「添加提供商」，从第三方厂商目录中选择，或自行填写。"
             />
           </Card>
 
@@ -459,8 +378,7 @@ export default function AdminAIGlobalPage() {
                   管理员自己的 AI 配置
                 </h3>
                 <p className="text-sm text-default-500">
-                  管理员与普通用户使用同一个配置页面。要设置你自己的提供商和个人密钥，
-                  请前往「设置 → API 配置」；本页面只管理所有人共享的凭据。
+                  你自己的提供商与个人密钥在「设置 → API 配置」中设置。
                 </p>
               </div>
             </div>
@@ -484,8 +402,16 @@ export default function AdminAIGlobalPage() {
         protocols={protocols}
         onSubmit={handleSubmitProvider}
         onDiscover={handleDiscover}
-        apiKeyLabel="临时 API Key（可选）"
-        apiKeyPlaceholder="用于立即拉取该提供商的模型列表"
+        apiKeyLabel={
+          editing ? `「${editing.name}」的全局 API Key` : '临时 API Key（可选）'
+        }
+        apiKeyPlaceholder={
+          editing
+            ? editing.keyConfigured
+              ? '已保存，重新填写可覆盖'
+              : '粘贴 API Key'
+            : '用于立即拉取该提供商的模型列表'
+        }
       />
 
       <ConfirmModal

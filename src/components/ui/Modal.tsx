@@ -96,9 +96,9 @@ export function Modal({
               className
             )}
           >
-            <div className="rounded-[2rem] border border-default-200 bg-content1 shadow-sm">
+            <div className="flex max-h-[calc(100vh-3rem)] flex-col rounded-[2rem] border border-default-200 bg-content1 shadow-sm">
               {(title || description) && (
-                <div className="flex items-start justify-between gap-4 border-b border-default-200 px-6 py-5">
+                <div className="flex shrink-0 items-start justify-between gap-4 border-b border-default-200 px-6 py-4">
                   <div className="min-w-0">
                     {title && (
                       <h3 className="font-serif text-lg font-semibold tracking-tight text-foreground">
@@ -122,10 +122,13 @@ export function Modal({
                 </div>
               )}
 
-              <div className="px-6 py-5">{children}</div>
+              {/* The panel is capped at the viewport and the body scrolls, so a
+                  long form can never push the footer — or the whole modal — off
+                  the screen. */}
+              <div className="min-h-0 overflow-y-auto px-6 py-5">{children}</div>
 
               {footer && (
-                <div className="flex flex-wrap justify-end gap-3 border-t border-default-200 px-6 py-4">
+                <div className="flex shrink-0 flex-wrap justify-end gap-3 border-t border-default-200 px-6 py-4">
                   {footer}
                 </div>
               )}

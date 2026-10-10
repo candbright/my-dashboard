@@ -12,26 +12,46 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, label, errorMessage, fullWidth = true, variant = 'flat', options, id: propId, ...props }, ref) => {
+  (
+    {
+      className,
+      label,
+      errorMessage,
+      fullWidth = true,
+      variant = 'flat',
+      options,
+      disabled,
+      id: propId,
+      ...props
+    },
+    ref
+  ) => {
     const autoId = useId();
     const id = propId || autoId;
 
     return (
       <div className={cn('flex flex-col gap-1.5', fullWidth && 'w-full')}>
         {label && (
-          <label htmlFor={id} className="text-sm font-medium text-foreground">
+          <label
+            htmlFor={id}
+            className={cn('text-sm font-medium', disabled ? 'text-default-400' : 'text-foreground')}
+          >
             {label}
           </label>
         )}
         <select
           ref={ref}
           id={id}
+          disabled={disabled}
           className={cn(
             'h-10 rounded-full px-3 text-sm transition-all duration-500',
             'bg-transparent border border-default-200 hover:border-default-300',
             'text-foreground outline-none',
             'focus:border-primary/60 focus:ring-2 focus:ring-primary/10',
             errorMessage && 'border-danger',
+            // Match Input: a read-only field must not look editable.
+            disabled &&
+              'cursor-not-allowed border-transparent bg-default-100 text-default-400 hover:border-transparent',
             className
           )}
           {...props}

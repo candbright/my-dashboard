@@ -1,15 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Download, GripVertical, Loader2, Plus, X } from 'lucide-react';
 import {
   Button,
-  Chip,
   Input,
   Modal,
   Pressable,
   Select,
-  Textarea,
 } from '@/components/ui';
 import {
   AI_PROTOCOLS,
@@ -19,31 +17,27 @@ import {
   type ProviderDraft,
   type ProviderView,
 } from '@/lib/ai-providers';
+import { cn } from '@/lib/cn';
 
-interface FormState {
-  id: string;
-  name: string;
-  baseUrl: string;
-  protocol: AIProtocol;
-  modelsText: string;
-  keyUrl: string;
+/** Models are held as a list of rows so each one can be edited on its own. */
+type ModelRows = { key: string; value: string }[];
+
+let rowSeq = 0;
+const newRow = (value = ''): { key: string; value: string } => ({
+  key: `m${rowSeq++}`,
+  value,
+});
+
+function toRows(models: string[]): ModelRows {
+  return models.length > 0 ? models.map((m) => newRow(m)) : [newRow()];
 }
 
-const EMPTY_FORM: FormState = {
-  id: '',
-  name: '',
-  baseUrl: '',
-  protocol: AI_PROTOCOLS[0],
-  modelsText: '',
-  keyUrl: '',
-};
-
-/** Models are accepted one per line or comma-separated, whichever is pasted. */
-function parseModels(text: string): string[] {
+/** Rows in, trimmed non-empty model names out, duplicates dropped. */
+function fromRows(rows: ModelRows): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const raw of text.split(/[\n,]/)) {
-    const model = raw.trim();
+  for (const row of rows) {
+    const model = row.value.trim();
     if (!model || seen.has(model)) continue;
     seen.add(model);
     out.push(model);
@@ -56,13 +50,31 @@ function isValidProviderId(id: string): boolean {
   return /^[a-z0-9][a-z0-9._-]{0,39}$/.test(id);
 }
 
+/** Derive an id from a vendor name, so the common case needs no typing. */
+function deriveId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^[^a-z0-9]+/, '')
+    .replace(/-+$/, '')
+    .slice(0, 40);
+}
+
 interface ProviderFormModalProps {
   open: boolean;
   onClose: () => void;
   /** The provider being edited, or null when adding. */
   editing: ProviderView | null;
   protocols: { value: AIProtocol; label: string }[];
-  onSubmit: (draft: ProviderDraft) => Promise<void>;
+  /**
+   * Submit the definition and, in edit mode, the credential intent.
+   *
+   * The key rides along because it belongs to the provider: editing a provider is
+   * where a key gets rotated or removed, not a separate card on the page.
+   * `apiKey` is only meaningful while editing — in add mode the field exists to
+   * power model discovery and is never persisted.
+   */
+  onSubmit: (draft: ProviderDraft, key: { apiKey: string; clearKey: boolean }) => Promise<void>;
   /**
    * Fetch the model list for a draft.
    *
@@ -79,9 +91,14 @@ interface ProviderFormModalProps {
 /**
  * The add/edit provider form.
  *
- * It lives in a modal rather than inline because the list it edits is long: an
- * inline form pushed the list below the fold, and "add" is a deliberate, rare
- * action that does not need permanent screen space.
+ * Two things drive its shape. It is a modal because "add" is a deliberate, rare
+ * action that should not hold permanent screen space. And its width is `md`, not
+ * `lg`, because the fields are short: a full-width form for a URL and a protocol
+ * dropdown reads as a wall of empty input.
+ *
+ * Only the id is ever read-only, and it is dimmed rather than merely unclickable
+ * — the browser's own disabled styling is overridden by the design system, so
+ * without the explicit treatment a locked field looks editable until typed into.
  */
 export function ProviderFormModal({
   open,
@@ -93,8 +110,17 @@ export function ProviderFormModal({
   apiKeyLabel,
   apiKeyPlaceholder,
 }: ProviderFormModalProps) {
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [id, setId] = useState('');
+  /** True once the id has been auto-derived and may be rewritten by the name. */
+  const [idDerived, setIdDerived] = useState(true);
+  const [name, setName] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [protocol, setProtocol] = useState<AIProtocol>(AI_PROTOCOLS[0]);
+  const [rows, setRows] = useState<ModelRows>([newRow()]);
+  const [keyUrl, setKeyUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
+  /** Edit mode only: the administrator asked to delete the stored credential. */
+  const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [discovering, setDiscovering] = useState(false);
   const [discovered, setDiscovered] = useState<DiscoveredModel[]>([]);
@@ -108,31 +134,62 @@ export function ProviderFormModal({
     setError(null);
     setDiscovered([]);
     setApiKey('');
+    setClearKey(false);
     if (editing) {
-      setForm({
-        id: editing.id,
-        name: editing.name,
-        baseUrl: editing.baseUrl,
-        protocol: editing.protocol,
-        modelsText: editing.models.join('\n'),
-        keyUrl: editing.keyUrl ?? '',
-      });
+      setId(editing.id);
+      setIdDerived(false);
+      setName(editing.name);
+      setBaseUrl(editing.baseUrl);
+      setProtocol(editing.protocol);
+      setKeyUrl(editing.keyUrl ?? '');
+      setRows(toRows(editing.models));
     } else {
-      setForm(EMPTY_FORM);
+      setId('');
+      setIdDerived(true);
+      setName('');
+      setBaseUrl('');
+      setProtocol(protocols[0]?.value ?? AI_PROTOCOLS[0]);
+      setKeyUrl('');
+      setRows([newRow()]);
     }
-  }, [open, editing]);
+  }, [open, editing, protocols]);
 
-  const models = useMemo(() => parseModels(form.modelsText), [form.modelsText]);
+  const models = fromRows(rows);
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (idDerived) setId(deriveId(value));
+  };
+
+  const setRow = (key: string, value: string) =>
+    setRows((prev) => prev.map((row) => (row.key === key ? { ...row, value } : row)));
+
+  const addRow = () => setRows((prev) => [...prev, newRow()]);
+
+  const removeRow = (key: string) =>
+    setRows((prev) => (prev.length === 1 ? [newRow()] : prev.filter((row) => row.key !== key)));
+
+  const buildDraft = useCallback(
+    (): ProviderDraft => ({
+      id: id.trim(),
+      name: name.trim(),
+      baseUrl: baseUrl.trim(),
+      protocol,
+      models,
+      keyUrl: keyUrl.trim(),
+    }),
+    [id, name, baseUrl, protocol, models, keyUrl]
+  );
 
   const validate = useCallback((): string | null => {
-    if (!isEditing && !isValidProviderId(form.id)) {
+    if (!isEditing && !isValidProviderId(id.trim())) {
       return '提供商 ID 需为小写字母、数字、点、下划线或短横线，且以字母或数字开头';
     }
-    if (!form.name.trim()) return '请填写显示名称';
-    if (!/^https?:\/\//i.test(form.baseUrl.trim())) return 'API 地址需以 http:// 或 https:// 开头';
+    if (!name.trim()) return '请填写显示名称';
+    if (!/^https?:\/\//i.test(baseUrl.trim())) return 'API 地址需以 http:// 或 https:// 开头';
     if (models.length === 0) return '请至少填写一个模型名称';
     return null;
-  }, [form, isEditing, models.length]);
+  }, [baseUrl, id, isEditing, models.length, name]);
 
   const handleDiscover = async () => {
     setError(null);
@@ -145,9 +202,7 @@ export function ProviderFormModal({
     try {
       const found = await onDiscover(draft, apiKey);
       setDiscovered(found);
-      if (found.length === 0) {
-        setError('该地址没有返回任何模型，请手动填写模型名称');
-      }
+      if (found.length === 0) setError('该地址没有返回任何模型，请手动填写模型名称');
     } catch (err) {
       setError(err instanceof Error ? err.message : '获取模型列表失败');
     } finally {
@@ -155,21 +210,18 @@ export function ProviderFormModal({
     }
   };
 
-  const handleToggleModel = (id: string) => {
-    const next = models.includes(id) ? models.filter((m) => m !== id) : [...models, id];
-    setForm((prev) => ({ ...prev, modelsText: next.join('\n') }));
+  /** Append every discovered model that is not already a row. */
+  const handleAddDiscovered = (modelId: string) => {
+    if (models.includes(modelId)) return;
+    setRows((prev) => {
+      const blank = prev.findIndex((row) => row.value.trim() === '');
+      const next = blank >= 0
+        ? prev.map((row, i) => (i === blank ? { ...row, value: modelId } : row))
+        : [...prev, newRow(modelId)];
+      return next;
+    });
+    setDiscovered((prev) => prev.filter((m) => m.id !== modelId));
   };
-
-  function buildDraft(): ProviderDraft {
-    return {
-      id: form.id.trim(),
-      name: form.name.trim(),
-      baseUrl: form.baseUrl.trim(),
-      protocol: form.protocol,
-      models,
-      keyUrl: form.keyUrl.trim(),
-    };
-  }
 
   const handleSubmit = async () => {
     const message = validate();
@@ -180,7 +232,12 @@ export function ProviderFormModal({
     setSaving(true);
     setError(null);
     try {
-      await onSubmit(buildDraft());
+      // The credential is only ever submitted in edit mode; in add mode the same
+      // field is a throwaway input for model discovery.
+      await onSubmit(buildDraft(), {
+        apiKey: isEditing ? apiKey.trim() : '',
+        clearKey: isEditing && clearKey,
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存失败');
@@ -189,27 +246,22 @@ export function ProviderFormModal({
     }
   };
 
-  const selectedNotInList = discovered.filter((d) => !models.includes(d.id));
+  const pending = discovered.filter((d) => !models.includes(d.id));
 
   return (
     <Modal
       open={open}
       onClose={saving ? () => undefined : onClose}
       isDismissable={!saving}
-      size="lg"
+      size="md"
       title={isEditing ? '编辑提供商' : '添加提供商'}
-      description={
-        isEditing
-          ? '修改接入地址、协议或模型列表。API Key 不在此处修改。'
-          : '从内置目录中选择会自动填好参数，也可以完全自定义。'
-      }
       footer={
         <>
           <Button variant="light" size="sm" onClick={onClose} isDisabled={saving}>
             取消
           </Button>
           <Button color="primary" size="sm" onClick={handleSubmit} isLoading={saving}>
-            {isEditing ? '保存修改' : '添加'}
+            {isEditing ? '保存' : '添加'}
           </Button>
         </>
       }
@@ -217,27 +269,30 @@ export function ProviderFormModal({
       <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="提供商 ID"
-            value={form.id}
-            onChange={(e) => setForm({ ...form, id: e.target.value })}
-            disabled={isEditing}
-            placeholder="acme-gw"
-            description={isEditing ? 'ID 不可修改' : '用于内部标识，添加后不可修改'}
+            label="显示名称"
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder="Acme 网关"
           />
           <Input
-            label="显示名称"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Acme 网关"
+            label="提供商 ID"
+            value={id}
+            onChange={(e) => {
+              setIdDerived(false);
+              setId(e.target.value);
+            }}
+            disabled={isEditing}
+            placeholder="acme-gw"
+            description={isEditing ? '添加后不可修改' : undefined}
           />
         </div>
 
         <Input
           label="API 地址"
-          value={form.baseUrl}
-          onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
+          value={baseUrl}
+          onChange={(e) => setBaseUrl(e.target.value)}
           placeholder="https://api.example.com/v1"
-          description="只需填到版本号，系统会按协议自动补全路径"
+          description="填到版本号即可，系统按协议补全路径"
         />
 
         <Select
@@ -247,13 +302,13 @@ export function ProviderFormModal({
               ? protocols.map((p) => ({ value: p.value, label: p.label }))
               : AI_PROTOCOLS.map((p) => ({ value: p, label: AI_PROTOCOL_LABELS[p] }))
           }
-          value={form.protocol}
-          onChange={(e) => setForm({ ...form, protocol: e.target.value as AIProtocol })}
+          value={protocol}
+          onChange={(e) => setProtocol(e.target.value as AIProtocol)}
         />
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-medium text-foreground">模型列表</span>
+            <span className="text-sm font-medium text-foreground">模型</span>
             <Button
               variant="bordered"
               size="sm"
@@ -270,64 +325,95 @@ export function ProviderFormModal({
               {discovering ? '获取中' : '从接口获取'}
             </Button>
           </div>
-          <Textarea
-            value={form.modelsText}
-            onChange={(e) => setForm({ ...form, modelsText: e.target.value })}
-            placeholder={'每行一个模型名称，例如：\nacme-large\nacme-small'}
-            rows={4}
-          />
-          {selectedNotInList.length > 0 && (
+
+          <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+            {rows.map((row, index) => (
+              <div key={row.key} className="flex items-center gap-2">
+                <GripVertical className="h-3.5 w-3.5 shrink-0 text-default-300" aria-hidden />
+                <Input
+                  value={row.value}
+                  onChange={(e) => setRow(row.key, e.target.value)}
+                  placeholder={`模型 ${index + 1}`}
+                  inputSize="sm"
+                />
+                <Button
+                  variant="light"
+                  size="sm"
+                  isIconOnly
+                  aria-label={`移除第 ${index + 1} 个模型`}
+                  onClick={() => removeRow(row.key)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <Button
+            variant="light"
+            size="sm"
+            onClick={addRow}
+            startContent={<Plus className="h-3.5 w-3.5" />}
+          >
+            添加模型
+          </Button>
+
+          {pending.length > 0 && (
             <div className="space-y-2 rounded-[2rem] border border-default-200 bg-content2 px-4 py-3">
-              <p className="text-xs text-default-500">
-                接口返回 {discovered.length} 个模型，点击加入列表：
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {selectedNotInList.slice(0, 40).map((model) => (
+              <p className="text-xs text-default-500">点击加入：</p>
+              <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
+                {pending.slice(0, 40).map((model) => (
                   <Pressable
                     key={model.id}
-                    onClick={() => handleToggleModel(model.id)}
+                    onClick={() => handleAddDiscovered(model.id)}
                     className="rounded-full border border-default-200 px-3 py-1 text-xs text-default-600 hover:border-primary/40 hover:text-foreground"
                   >
                     + {model.id}
                   </Pressable>
                 ))}
               </div>
-              {selectedNotInList.length > 40 && (
-                <p className="text-xs text-default-500">
-                  仅显示前 40 个，其余请手动填写。
-                </p>
-              )}
             </div>
           )}
         </div>
 
         <Input
-          label="密钥申请地址（可选）"
-          value={form.keyUrl}
-          onChange={(e) => setForm({ ...form, keyUrl: e.target.value })}
+          label="密钥申请地址"
+          value={keyUrl}
+          onChange={(e) => setKeyUrl(e.target.value)}
           placeholder="https://platform.example.com/api-keys"
-          description="填写后会在这里显示获取密钥的入口链接"
         />
 
         {apiKeyLabel && (
-          <Input
-            label={apiKeyLabel}
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={apiKeyPlaceholder}
-            description="仅用于本次「从接口获取」模型列表，不会被保存"
-            autoComplete="off"
-          />
-        )}
-
-        {models.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {models.map((model) => (
-              <Chip key={model} variant="flat" color="default" size="sm">
-                {model}
-              </Chip>
-            ))}
+          <div className="space-y-2">
+            <Input
+              label={apiKeyLabel}
+              type="password"
+              value={apiKey}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                if (e.target.value.trim()) setClearKey(false);
+              }}
+              placeholder={apiKeyPlaceholder}
+              autoComplete="off"
+              disabled={clearKey}
+              description={
+                isEditing && editing?.keyConfigured && !clearKey
+                  ? '已保存，留空则保持不变'
+                  : undefined
+              }
+            />
+            {isEditing && editing?.keyConfigured && (
+              <Pressable
+                onClick={() => setClearKey((v) => !v)}
+                aria-pressed={clearKey}
+                className={cn(
+                  'text-xs',
+                  clearKey ? 'text-default-500' : 'text-danger hover:underline'
+                )}
+              >
+                {clearKey ? '取消移除，保留已保存的密钥' : '移除已保存的密钥'}
+              </Pressable>
+            )}
           </div>
         )}
 

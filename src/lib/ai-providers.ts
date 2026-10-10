@@ -43,6 +43,14 @@ export interface ProviderView {
   selectable: boolean;
   /** True for entries from the server's built-in catalogue. */
   builtin: boolean;
+  /**
+   * Whether an administrator actually added this provider to the list.
+   *
+   * This is NOT the inverse of `builtin`: a catalogue vendor only enters the list
+   * once someone adds it from the picker. The settings pages render only `added`
+   * providers, which is what keeps the built-in vendors inside the picker.
+   */
+  added: boolean;
   /** Whether the server holds a credential for this provider. */
   keyConfigured: boolean;
   /** Whether this is the provider the global API spends. */

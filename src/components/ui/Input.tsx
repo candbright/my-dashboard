@@ -45,6 +45,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       isInvalid = false,
       fullWidth = true,
       labelPlacement = 'outside',
+      disabled,
       id: propId,
       ...props
     },
@@ -57,7 +58,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={cn('flex flex-col gap-1.5', fullWidth && 'w-full')}>
         {label && labelPlacement === 'outside' && (
-          <label htmlFor={id} className="text-sm font-medium text-foreground">
+          <label
+            htmlFor={id}
+            className={cn('text-sm font-medium', disabled ? 'text-default-400' : 'text-foreground')}
+          >
             {label}
           </label>
         )}
@@ -69,6 +73,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             hasError && 'border-danger hover:border-danger',
             'focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10',
             hasError && 'focus-within:border-danger focus-within:ring-danger/20',
+            // A read-only field has to look read-only. The browser's default
+            // greying is overridden by the classes above, so without this a
+            // disabled input is indistinguishable from an editable one and the
+            // user only finds out by trying to type.
+            disabled &&
+              'cursor-not-allowed border-transparent bg-default-100 hover:border-transparent focus-within:border-transparent focus-within:ring-0'
           )}
         >
           {startContent && (
@@ -79,9 +89,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={id}
+            disabled={disabled}
             className={cn(
               'flex-1 bg-transparent outline-none px-3',
               'text-foreground placeholder:text-default-400',
+              disabled && 'cursor-not-allowed text-default-400',
               startContent && 'pl-1.5',
               endContent && 'pr-1.5',
               className
@@ -95,7 +107,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {description && !hasError && (
-          <p className="text-xs text-default-400">{description}</p>
+          <p className={cn('text-xs', disabled ? 'text-default-400/70' : 'text-default-400')}>
+            {description}
+          </p>
         )}
         {errorMessage && (
           <p className="text-xs text-danger">{errorMessage}</p>

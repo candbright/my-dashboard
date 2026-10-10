@@ -226,9 +226,15 @@ export async function createProvider(draft: ProviderDraft): Promise<ProviderList
 
 export async function updateProvider(
   id: string,
-  draft: ProviderDraft
+  draft: ProviderDraft,
+  key?: { apiKey?: string; clearKey?: boolean }
 ): Promise<ProviderListPayload> {
-  const res = await apiPut(`/api/ai/providers/${encodeURIComponent(id)}`, draft);
+  // The shared credential rides along with the definition: the edit form manages
+  // both, and filing a key is meaningless if the definition update failed.
+  const body: Record<string, unknown> = { ...draft };
+  if (key?.clearKey) body.clearKey = true;
+  else if (key?.apiKey) body.apiKey = key.apiKey;
+  const res = await apiPut(`/api/ai/providers/${encodeURIComponent(id)}`, body);
   if (!res.ok) throw new Error(await readError(res, '保存提供商失败'));
   return res.json();
 }

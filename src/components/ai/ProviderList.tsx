@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, KeyRound, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import {
   Button,
-  Card,
   Chip,
   EmptyState,
   Input,
@@ -142,6 +141,9 @@ export function ProviderList({
       <div className="space-y-2">
         {providers.map((provider) => {
           const selected = provider.id === selectedId;
+          // With no `onSelect` the list is read-only, so the row must not still
+          // advertise itself as clickable.
+          const selectable = Boolean(onSelect) && provider.selectable;
           return (
             <div
               key={provider.id}
@@ -149,18 +151,20 @@ export function ProviderList({
                 'flex flex-wrap items-center gap-3 rounded-[2rem] border px-4 py-3 transition-colors duration-500 ease-in-out',
                 selected
                   ? 'border-primary/40 bg-primary/5'
-                  : 'border-default-200 bg-transparent hover:border-default-300'
+                  : selectable
+                    ? 'border-default-200 bg-transparent hover:border-default-300'
+                    : 'border-default-200 bg-transparent'
               )}
             >
               <Pressable
                 onClick={() => onSelect?.(provider.id)}
-                disabled={!onSelect || !provider.selectable}
+                disabled={!selectable}
                 aria-label={`选择 ${provider.name}`}
                 aria-pressed={selected}
                 className={cn(
                   'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
                   selected ? 'border-primary bg-primary text-primary-foreground' : 'border-default-300',
-                  (!onSelect || !provider.selectable) && 'cursor-not-allowed opacity-50'
+                  !selectable && 'cursor-not-allowed opacity-50'
                 )}
               >
                 {selected && <Check className="h-3 w-3" />}
@@ -169,11 +173,6 @@ export function ProviderList({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate font-medium text-foreground">{provider.name}</span>
-                  {provider.builtin && (
-                    <Chip variant="flat" color="default" size="sm">
-                      内置
-                    </Chip>
-                  )}
                   {provider.isGlobalActive && (
                     <Chip variant="flat" color="secondary" size="sm">
                       全局 API 使用
@@ -191,12 +190,6 @@ export function ProviderList({
                   <span>{provider.protocolLabel}</span>
                   <span>·</span>
                   <span>{provider.models.length} 个模型</span>
-                  {provider.id === selectedId && provider.model && (
-                    <>
-                      <span>·</span>
-                      <span>默认 {provider.model}</span>
-                    </>
-                  )}
                 </div>
               </div>
 
@@ -228,7 +221,6 @@ export function ProviderList({
                       size="sm"
                       isIconOnly
                       aria-label={`删除 ${provider.name}`}
-                      isDisabled={provider.builtin}
                       onClick={() => onDelete?.(provider)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -304,16 +296,15 @@ export function ProviderCatalogModal({
     <Modal
       open={open}
       onClose={onClose}
-      size="lg"
+      size="md"
       title="添加提供商"
-      description="第三方提供商来自内置的知名厂商目录，选中后会自动填好接入地址、协议与模型；自定义提供商则全部手填。添加后仍可在列表中修改模型与 API Key。"
       footer={
         <Button variant="light" size="sm" onClick={onClose}>
           取消
         </Button>
       }
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         <div className="inline-flex rounded-full bg-default-100/60 p-1">
           {(
             [
@@ -338,11 +329,12 @@ export function ProviderCatalogModal({
         </div>
 
         {tab === 'catalog' ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索厂商名称或地址"
+              inputSize="sm"
               startContent={<Search className="h-4 w-4" />}
             />
 
@@ -352,41 +344,46 @@ export function ProviderCatalogModal({
               </div>
             ) : groups.length === 0 ? (
               <p className="py-6 text-center text-sm text-default-500">
-                没有匹配的厂商，可以在「自定义提供商」中手动填写。
+                没有匹配的厂商，可在「自定义提供商」中手动填写。
               </p>
             ) : (
-              <div className="max-h-[26rem] space-y-5 overflow-y-auto pr-1">
+              <div className="max-h-72 space-y-4 overflow-y-auto pr-1">
                 {groups.map((group) => (
-                  <div key={group.key} className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-default-400">
+                  <div key={group.key} className="space-y-1.5">
+                    <p className="text-xs font-medium tracking-wide text-default-400">
                       {group.label}
                     </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {group.entries.map((entry) => (
-                        <Pressable
-                          key={entry.id}
-                          disabled={entry.alreadyAdded}
-                          onClick={() => onPick(entry)}
-                          className={cn(
-                            'rounded-[2rem] border px-4 py-3 text-left',
-                            entry.alreadyAdded
-                              ? 'cursor-not-allowed border-default-200 opacity-50'
-                              : 'border-default-200 hover:border-primary/40 hover:bg-primary/5'
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-foreground">{entry.name}</span>
-                            {entry.alreadyAdded && (
-                              <Chip variant="flat" color="default" size="sm">
-                                已添加
-                              </Chip>
-                            )}
-                          </div>
-                          <p className="mt-1 truncate text-xs text-default-500">{entry.baseUrl}</p>
-                          <p className="text-xs text-default-400">{entry.models.length} 个预填模型</p>
-                        </Pressable>
-                      ))}
-                    </div>
+                    {group.entries.map((entry) => (
+                      <Pressable
+                        key={entry.id}
+                        disabled={entry.alreadyAdded}
+                        onClick={() => onPick(entry)}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-3 rounded-[2rem] border px-4 py-2.5 text-left',
+                          entry.alreadyAdded
+                            ? 'cursor-not-allowed border-default-200 opacity-50'
+                            : 'border-default-200 hover:border-primary/40 hover:bg-primary/5'
+                        )}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-foreground">
+                            {entry.name}
+                          </span>
+                          <span className="block truncate text-xs text-default-400">
+                            {entry.baseUrl}
+                          </span>
+                        </span>
+                        {entry.alreadyAdded ? (
+                          <Chip variant="flat" color="default" size="sm">
+                            已添加
+                          </Chip>
+                        ) : (
+                          <span className="shrink-0 text-xs text-default-400">
+                            {entry.models.length} 个模型
+                          </span>
+                        )}
+                      </Pressable>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -394,19 +391,10 @@ export function ProviderCatalogModal({
           </div>
         ) : (
           <div className="space-y-4">
-            <Card variant="bordered" className="p-5">
-              <p className="text-sm text-default-500">
-                自定义提供商需要自行填写 API 地址、接口协议与模型列表。适用于自建网关、
-                代理服务或目录中没有的厂商。
-              </p>
-            </Card>
-            <Button
-              color="primary"
-              onClick={() => {
-                onCustom();
-              }}
-              startContent={<Plus className="h-4 w-4" />}
-            >
+            <p className="text-sm text-default-500">
+              适用于自建网关、代理服务或目录中没有的厂商。
+            </p>
+            <Button color="primary" size="sm" onClick={onCustom} startContent={<Plus className="h-4 w-4" />}>
               填写自定义提供商
             </Button>
           </div>
