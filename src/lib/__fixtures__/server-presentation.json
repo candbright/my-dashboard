@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "palette": [
+    {
+      "hex": "#5c4033",
+      "label": "石棕"
+    },
+    {
+      "hex": "#8b9d77",
+      "label": "鼠尾草绿"
+    },
+    {
+      "hex": "#d4a373",
+      "label": "暖棕"
+    },
+    {
+      "hex": "#557a46",
+      "label": "森林绿"
+    },
+    {
+      "hex": "#c28a2e",
+      "label": "琥珀"
+    },
+    {
+      "hex": "#a64b45",
+      "label": "暗红"
+    }
+  ],
+  "templates": [
+    "ats-safe-single-column",
+    "classic-centred",
+    "verdant-banner"
+  ],
+  "fontFamilies": [
+    "serif",
+    "sans"
+  ],
+  "default": {
+    "schemaVersion": 1,
+    "template": "ats-safe-single-column",
+    "accentColor": "#5c4033",
+    "fontFamily": "serif",
+    "fontScale": 1,
+    "lineHeight": 1.5,
+    "pageMargin": "18mm",
+    "sectionOrder": [
+      "关于我",
+      "工作经历",
+      "项目经历",
+      "教育背景",
+      "技能"
+    ],
+    "photo": {
+      "enabled": false,
+      "path": null
+    }
+  },
+  "bounds": {
+    "minFontScale": 0.8,
+    "maxFontScale": 1.6,
+    "minLineHeight": 1,
+    "maxLineHeight": 2.5,
+    "maxSectionOrderEntries": 30,
+    "maxSectionNameLength": 60,
+    "minPageMarginMM": 5,
+    "maxPageMarginMM": 60,
+    "minAccentLightness": 0.2,
+    "maxAccentLightness": 0.85,
+    "coldHueMinInclusive": 150,
+    "coldHueMaxExclusive": 300,
+    "coldSaturationFloor": 0.1
+  },
+  "fieldNames": [
+    "accentColor",
+    "fontFamily",
+    "fontScale",
+    "lineHeight",
+    "pageMargin",
+    "photo",
+    "schemaVersion",
+    "sectionOrder",
+    "template"
+  ]
+}

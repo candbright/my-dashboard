@@ -10,6 +10,24 @@ export interface ToastData {
   message: string;
 }
 
+/**
+ * How long a toast stays up, given its message.
+ *
+ * A flat 3000 ms was too short for the messages this app actually produces: the
+ * export failures carry a paragraph of guidance ("浏览器拦截了打印窗口…"), and a
+ * toast that vanishes mid-sentence is worse than no toast. Reading Chinese aloud
+ * runs about 5–6 characters per second, so the budget is derived from the message
+ * length — floored at 4 s so short confirmations are still readable, and capped at
+ * 12 s so a long message cannot pin itself to the screen (ticket 08).
+ */
+export function toastDuration(message: string): number {
+  const MIN_MS = 4000;
+  const MAX_MS = 12000;
+  const MS_PER_CHAR = 180;
+
+  return Math.min(MAX_MS, Math.max(MIN_MS, message.length * MS_PER_CHAR));
+}
+
 export function useToast() {
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
@@ -18,7 +36,7 @@ export function useToast() {
     setToasts((prev) => [...prev, { id, type, message }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3000);
+    }, toastDuration(message));
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -42,7 +60,7 @@ export function ToastContainer({ toasts, removeToast }: { toasts: ToastData[]; r
             className="pointer-events-auto"
           >
             <div
-              className={`flex items-center gap-2.5 px-4 py-3 rounded-[1.5rem] shadow-lg backdrop-blur-md border text-sm font-medium ${
+              className={`flex items-center gap-2.5 px-4 py-3 rounded-[1.5rem] shadow-sm backdrop-blur-md border text-sm font-medium ${
                 toast.type === 'success'
                   ? 'bg-success/10 border-success/20 text-success'
                   : 'bg-danger/10 border-danger/20 text-danger'

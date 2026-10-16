@@ -19,9 +19,12 @@ export default function RegisterPage() {
 
 function RegisterForm() {
   const searchParams = useSearchParams();
+  // One reader of the query string; see the note in `login/page.tsx` for why both an
+  // initialiser and an effect are needed.
+  const emailParam = searchParams.get('email') ?? '';
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState(() => searchParams.get('email') ?? '');
-  const [password, setPassword] = useState(() => searchParams.get('password') ?? '');
+  const [email, setEmail] = useState(emailParam);
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
@@ -33,18 +36,18 @@ function RegisterForm() {
   const router = useRouter();
 
   useEffect(() => {
-    const p = searchParams.get('email');
-    if (p) setEmail(p);
-  }, [searchParams]);
+    if (emailParam) setEmail(emailParam);
+  }, [emailParam]);
 
   useEffect(() => {
     if (isAuthenticated) router.replace('/');
   }, [isAuthenticated, router]);
 
+  // Email only, for the reason given in `login/page.tsx`: a password in a query string is
+  // left behind in history, logs and `Referer` headers.
   const goToLogin = () => {
     const params = new URLSearchParams();
     if (email.trim()) params.set('email', email.trim());
-    if (password) params.set('password', password);
     router.push(`/login${params.size ? '?' + params.toString() : ''}`);
   };
 
@@ -110,7 +113,7 @@ function RegisterForm() {
           <div className="w-12 h-12 rounded-[2rem] bg-secondary flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">创建账号</h1>
+          <h1 className="text-2xl font-bold tracking-tight font-serif text-foreground">创建账号</h1>
           <p className="text-sm text-default-500 mt-1">注册一个新的 ResumeVault 账号</p>
         </div>
 

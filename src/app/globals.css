@@ -175,6 +175,9 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  /* Dates, counts and countdowns sit in the same line as Chinese copy; proportional
+     figures make those digits shift as they tick. Tabular figures keep the row still. */
+  font-variant-numeric: tabular-nums;
 }
 
 /* Organic heading defaults */
@@ -206,20 +209,12 @@ h1, h2, h3, h4, h5, h6 {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
 }
 
-/* Organic frosted (replaces .glass) */
-.glass {
-  background: rgba(250, 246, 241, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(139, 157, 119, 0.15);
-}
-
-@media (prefers-color-scheme: dark) {
-  .glass {
-    background: rgba(41, 37, 36, 0.85);
-    border: 1px solid rgba(139, 157, 119, 0.12);
-  }
-}
+/* NOTE (ticket 08): `.glass` and `.glow-primary` used to live here. Both were
+   superseded — `.glass` by `bg-content1/95 backdrop-blur-md`, and `.glow-primary`
+   by nothing at all — and neither had a single reference left in the codebase
+   (`grep -r 'glass\|glow-primary' src/`). Removed rather than kept as
+   "documentation", because a dead utility class is only ever a way for the next
+   person to reintroduce glassmorphism, which AGENTS.md bans. */
 
 /* Gradient text (brown → sage green) */
 .gradient-text {
@@ -244,17 +239,6 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
-}
-
-/* Organic warm glow (replaces .glow-primary) */
-.glow-primary {
-  box-shadow: 0 0 40px rgba(92, 64, 51, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .glow-primary {
-    box-shadow: 0 0 40px rgba(139, 157, 119, 0.12);
-  }
 }
 
 /* Dot grid background (warm stone version) */
@@ -291,64 +275,98 @@ h1, h2, h3, h4, h5, h6 {
   animation: organic-fade-in 0.5s ease-out both;
 }
 
-/* ─────── Resume Content Display ─────── */
+/* ─────── Reduced motion ─────── */
 
-.resume-content h2 {
-  font-family: var(--font-serif, Georgia, "Times New Roman", serif);
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-top: 2rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--default-200);
+/*
+ * Honours the operating system's "reduce motion" setting for every animation that is
+ * driven by CSS rather than by framer-motion.
+ *
+ * Why this is needed *in addition to* the hook in `src/hooks/usePrefersReducedMotion.ts`:
+ * the two cover disjoint halves of the app. framer-motion reads the preference itself and
+ * can be told to render at the final state, but it has no knowledge of Tailwind's
+ * `animate-spin` / `animate-pulse` utilities or of the keyframes above — and those are the
+ * ones that run **forever** (a spinner never stops). A hook cannot reach them; only a media
+ * query can. `Spinner`, `Button`'s loading state, `AutosaveIndicator` and the AI streaming
+ * indicators all animate through CSS.
+ *
+ * `0.01ms` rather than `0s`: a zero duration can make some engines skip the animation's
+ * final state, leaving an element painted at its `from` keyframe — which is how a spinner
+ * ends up frozen mid-rotation instead of simply still. The near-zero value lets the
+ * animation complete instantly while still reaching its end state.
+ *
+ * This does not remove any information: nothing in the app conveys meaning through motion
+ * alone. The `it.fails` case in `src/components/ui/Animations.a11y.test.tsx` is what
+ * originally recorded that this preference was consulted nowhere.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
-.resume-content h3 {
-  font-family: var(--font-serif, Georgia, "Times New Roman", serif);
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-top: 1.25rem;
-  margin-bottom: 0.5rem;
+/* Tailwind's `animate-*` utilities read `--tw-*` custom properties on the element, so
+   overriding the duration above would be undone for them. Naming them explicitly is the
+   reliable way to stop the infinite ones. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin,
+  .animate-ping,
+  .animate-pulse,
+  .animate-bounce,
+  .organic-animate-in {
+    animation: none !important;
+  }
 }
 
-.resume-content p {
-  margin-bottom: 0.75rem;
-  line-height: 1.7;
-  color: var(--default-500);
+/* NOTE (ticket 08): the `.resume-content` block (h2/h3/p/ul/li/em/strong/a/code)
+   used to live here. It had no references anywhere in the codebase — the resume
+   body is rendered by `<ResumeDisplay>` / `<ResumeMarkdown>`, which style every
+   element through Tailwind classes. It was almost certainly a leftover from the
+   removed `react-markdown` wrapper. Deleted as dead code rather than left to rot,
+   because the next person to add a `.resume-content` class would silently get
+   2019-era styling that nobody had reviewed. */
+
+/* ============================================================
+   打印样式（浏览器原生打印导出，ADR-0001 阶段一）
+   ------------------------------------------------------------
+   ⚠️ 这一段**刻意不使用 CSS 变量与 Tailwind 类**。
+   打印文档必须自包含（iframe 不继承父页样式表），且 ADR-0001 阶段四的
+   渲染器明确不支持 CSS 变量——现在就不用它们，可以少写一遍。
+
+   规格与 src/lib/print-resume.ts 的 PRINT_RESUME_CSS 保持一致；
+   那里是打印文档真正生效的副本，这里负责当前页面自身的打印兜底。
+   ============================================================ */
+
+@page {
+  size: A4;
+  margin: 18mm;
 }
 
-.resume-content ul {
-  list-style-type: disc;
-  padding-left: 1.5rem;
-  margin-bottom: 0.75rem;
+@media print {
+  /* 应用外壳、导航、编辑器 UI、通知都不得上纸。 */
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #ffffff;
+  }
+
+  /* 条目级不断裂：一条工作经历被拆到两页是最常见的"简历看起来坏了"。 */
+  .resume-entry {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 小节标题不应成为某页的最后一个元素。 */
+  .resume-section-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
 }
 
-.resume-content li {
-  margin-bottom: 0.375rem;
-  line-height: 1.6;
-  color: var(--default-500);
-}
-
-.resume-content em {
-  font-style: italic;
-  color: var(--primary);
-}
-
-.resume-content strong {
-  font-weight: 600;
-  color: var(--foreground);
-}
-
-.resume-content a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.resume-content code {
-  background: var(--default-100);
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-}

@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertTriangle, Plug, Plus, ShieldCheck } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   Button,
   Card,
-  Chip,
   ConfirmModal,
   Spinner,
   ToastContainer,
@@ -39,11 +38,10 @@ import type {
 /**
  * API 全局设置 — the administrator's view of the shared AI credential.
  *
- * Two responsibilities sit on this page and they are deliberately separate
- * cards: managing the provider list itself (everyone shares it), and choosing
- * which provider plus key the global API spends. Mixing them was what made the
- * previous design ambiguous — it was never clear whether a form was editing a
- * provider definition or the deployment's active credential.
+ * This page manages the shared provider list and which of those providers the
+ * global API spends. A connection test lives on each provider row, not on a
+ * separate status card: the list is already the source of truth for "which
+ * credential is configured".
  *
  * The administrator's *own* AI settings live on the user settings page, the same
  * one everybody else uses, which is why nothing here writes a personal
@@ -68,8 +66,7 @@ export default function AdminAIGlobalPage() {
   /** `${providerId}:${model}` whose enable-switch is mid-save. */
   const [modelBusy, setModelBusy] = useState<string | null>(null);
 
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const applyList = useCallback(
     (payload: { providers: ProviderView[]; protocols: { value: AIProtocol; label: string }[] }) => {
@@ -211,19 +208,19 @@ export default function AdminAIGlobalPage() {
     }
   };
 
-  const handleTest = async () => {
-    if (!globalState?.activeProviderId) return;
-    setTesting(true);
-    setTestResult(null);
+  const handleTest = async (provider: ProviderView) => {
+    if (!provider.keyConfigured) return;
+    setTestingId(provider.id);
     try {
-      const result = await testConnection(globalState.activeProviderId);
-      setTestResult(
+      const result = await testConnection(provider.id);
+      addToast(
+        'success',
         `连接成功 · ${result.model}${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
       );
     } catch (err) {
-      setTestResult(err instanceof Error ? err.message : '连接测试失败');
+      addToast('error', err instanceof Error ? err.message : '连接测试失败');
     } finally {
-      setTesting(false);
+      setTestingId(null);
     }
   };
 
@@ -256,7 +253,7 @@ export default function AdminAIGlobalPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
       >
-        <h1 className="text-2xl font-bold tracking-tight mb-1">API 全局设置</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-serif mb-1">API 全局设置</h1>
         <p className="text-sm text-default-500 mb-8">配置全体用户共享的 AI 凭据</p>
         <Card variant="bordered" className="p-6">
           <p className="text-sm text-danger">{loadError}</p>
@@ -275,66 +272,12 @@ export default function AdminAIGlobalPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
       >
-        <h1 className="text-2xl font-bold tracking-tight mb-1">API 全局设置</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-serif mb-1">API 全局设置</h1>
         <p className="text-sm text-default-500 mb-8">
-          配置全体用户可申请的共享 AI 凭据，以及平台可用的提供商列表
+          用户开启「使用全局 API」后，请求会走这里设置的提供商。
         </p>
 
         <div className="space-y-6">
-          {/* Status */}
-          <Card variant="bordered" className="p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-[2rem] bg-secondary/10 p-3">
-                  <ShieldCheck className="h-5 w-5 text-secondary" />
-                </div>
-                <div>
-                  <h3 className="font-serif text-base font-semibold text-foreground">
-                    全局 API 状态
-                  </h3>
-                  <p className="mt-1 text-sm text-default-500">
-                    {globalState?.ready
-                      ? `当前使用「${globalState.activeProviderName || globalState.activeProviderId}」${
-                          globalState.model ? ` · ${globalState.model}` : ''
-                        }`
-                      : '尚未完成配置：请选择提供商并填写 API Key'}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {globalState?.ready ? (
-                      <Chip variant="flat" color="success" size="sm">
-                        可用
-                      </Chip>
-                    ) : (
-                      <Chip variant="flat" color="warning" size="sm">
-                        未就绪
-                      </Chip>
-                    )}
-                    {(globalState?.pendingRequests.length ?? 0) > 0 && (
-                      <Chip variant="flat" color="primary" size="sm">
-                        {globalState?.pendingRequests.length} 条待审批申请
-                      </Chip>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <Button
-                variant="bordered"
-                size="sm"
-                onClick={handleTest}
-                isLoading={testing}
-                isDisabled={!globalState?.ready}
-                startContent={<Plug className="h-3.5 w-3.5" />}
-              >
-                测试连接
-              </Button>
-            </div>
-            {testResult && (
-              <p className="mt-4 rounded-full bg-default-100/60 px-4 py-2 text-sm text-default-600">
-                {testResult}
-              </p>
-            )}
-          </Card>
-
           {/* Global provider + key */}
           <Card variant="bordered" className="p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -342,9 +285,6 @@ export default function AdminAIGlobalPage() {
                 <h3 className="font-serif text-base font-semibold text-foreground">
                   全局 API 使用的提供商
                 </h3>
-                <p className="mt-1 text-sm text-default-500">
-                  用户开启「使用全局 API」后，请求会走这里选中的提供商。
-                </p>
               </div>
               <Button
                 variant="bordered"
@@ -367,25 +307,10 @@ export default function AdminAIGlobalPage() {
               onAdd={openAdd}
               onSetActiveModel={handleSetActiveModel}
               modelBusy={modelBusy}
+              onTest={handleTest}
+              testingId={testingId}
               emptyHint="还没有添加提供商。点击「添加提供商」，从第三方厂商目录中选择，或自行填写。"
             />
-          </Card>
-
-          {/* What this page does not do */}
-          <Card variant="bordered" className="p-6">
-            <div className="flex items-start gap-3">
-              <div className="rounded-[2rem] bg-default-100 p-3">
-                <AlertTriangle className="h-5 w-5 text-default-500" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="font-serif text-base font-semibold text-foreground">
-                  管理员自己的 AI 配置
-                </h3>
-                <p className="text-sm text-default-500">
-                  你自己的提供商与个人密钥在「设置 → API 配置」中设置。
-                </p>
-              </div>
-            </div>
           </Card>
         </div>
       </motion.div>

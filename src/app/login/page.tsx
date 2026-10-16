@@ -19,8 +19,12 @@ export default function LoginPage() {
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState(() => searchParams.get('email') ?? '');
-  const [password, setPassword] = useState(() => searchParams.get('password') ?? '');
+  // One reader of the query string: the initialiser fills the field on a client-side
+  // navigation, the effect covers the prerender, where `useSearchParams` is empty and only
+  // fills in after hydration.
+  const emailParam = searchParams.get('email') ?? '';
+  const [email, setEmail] = useState(emailParam);
+  const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [method, setMethod] = useState<'password' | 'code'>('password');
   const [error, setError] = useState<string | null>(null);
@@ -33,18 +37,19 @@ function LoginForm() {
   const router = useRouter();
 
   useEffect(() => {
-    const p = searchParams.get('email');
-    if (p) setEmail(p);
-  }, [searchParams]);
+    if (emailParam) setEmail(emailParam);
+  }, [emailParam]);
 
   useEffect(() => {
     if (isAuthenticated) router.replace('/');
   }, [isAuthenticated, router]);
 
+  // Carries the email only. A query string is written to browser history, server logs and
+  // every `Referer` this page sends, so a password put here outlives the visit in places the
+  // user cannot clear — and the register page can have the typed email instead.
   const goToRegister = () => {
     const params = new URLSearchParams();
     if (email.trim()) params.set('email', email.trim());
-    if (password) params.set('password', password);
     router.push(`/register${params.size ? '?' + params.toString() : ''}`);
   };
 
@@ -104,7 +109,7 @@ function LoginForm() {
           <div className="w-12 h-12 rounded-[2rem] bg-secondary flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-xl font-bold">R</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">欢迎回来</h1>
+          <h1 className="text-2xl font-bold tracking-tight font-serif text-foreground">欢迎回来</h1>
           <p className="text-sm text-default-500 mt-1">登录你的 ResumeVault 账号</p>
         </div>
 

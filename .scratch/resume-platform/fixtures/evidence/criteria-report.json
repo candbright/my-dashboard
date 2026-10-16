@@ -1,0 +1,121 @@
+{
+  "font": "simhei.ttf",
+  "fontBytes": 9745792,
+  "fontFamily": "ResumeCJK",
+  "htmlBytes": 52674,
+  "runs": [
+    {
+      "run": 1,
+      "ms": 823.2,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 613.3
+    },
+    {
+      "run": 2,
+      "ms": 552.5,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 578.6
+    },
+    {
+      "run": 3,
+      "ms": 555.8,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 863.5
+    },
+    {
+      "run": 4,
+      "ms": 548.1,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 904.7
+    },
+    {
+      "run": 5,
+      "ms": 659.7,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 905.6
+    },
+    {
+      "run": 6,
+      "ms": 822.7,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 928.8
+    },
+    {
+      "run": 7,
+      "ms": 869.7,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 1085.9
+    },
+    {
+      "run": 8,
+      "ms": 604.8,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 1106
+    },
+    {
+      "run": 9,
+      "ms": 756.2,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 1149.5
+    },
+    {
+      "run": 10,
+      "ms": 915.6,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 1435.1
+    },
+    {
+      "run": 11,
+      "ms": 923.6,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 1452.4
+    },
+    {
+      "run": 12,
+      "ms": 860.4,
+      "bytes": 490326,
+      "passes": 1,
+      "rssMB": 1475.8
+    }
+  ],
+  "warnings": [],
+  "summary": {
+    "pdfPath": "D:\\project-me\\my-dashboard\\.scratch\\resume-platform\\fixtures\\evidence\\out-document.pdf",
+    "pdfBytes": 490326,
+    "pdfMB": 0.468,
+    "minMs": 548.1,
+    "maxMs": 923.6,
+    "medianMs": 822.7,
+    "p95Ms": 923.6,
+    "peakRssMB": 1454.7,
+    "rssBeforeFinalRenderMB": 1475.8,
+    "warningCount": 0
+  },
+  "structure": {
+    "hasToUnicode": true,
+    "hasIdentityH": true,
+    "fontSubtypes": [
+      "/Subtype /CIDFontType2",
+      "/Subtype /Type0"
+    ],
+    "baseFonts": [
+      "/BaseFont /ResumeCJK",
+      "/BaseFont /ResumeCJK-Bold"
+    ],
+    "fontFileKeys": [
+      "/FontFile2"
+    ],
+    "cidToGidMapIsIdentity": true
+  }
+}

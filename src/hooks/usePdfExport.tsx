@@ -1,100 +1,43 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { ResumePrintView } from '@/components/ResumePrintView';
+import { useState, useCallback } from 'react';
+import { PRINT_EXPORT_HINT, exportResumeImage, exportResumePdf } from '@/lib/export-pdf';
 import type { ResumeRecord } from '@/lib/types';
-import type { ParsedResume } from '@/lib/resume-parser';
+import type { ParsedResumeWithMetadata } from '@/lib/resume-model';
 
 /**
- * Hook that manages PDF export from a parsed resume.
- * Renders a hidden print view, captures it with html2canvas, and generates a PDF with jsPDF.
+ * PDF export, as a hook.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * TRANSITIONAL IMPLEMENTATION — Phase 1 of ADR-0001.
+ *
+ * `exportPdf` delegates to the browser's own print pipeline so the produced
+ * document has a real text layer. The contract is ADR-0007
+ * (`RenderResume(结构化内容, 展示态) → (文件字节, 渲染告警[])`); Phase 4 replaces
+ * the implementation behind `exportResumePdf` with the render service chosen by
+ * the ADR-0002 spike, and this hook should not need to change.
+ *
+ * The previous implementation rasterised the page with html2canvas and wrapped
+ * the bitmap in jsPDF. That produced a PDF with **no text layer at all**, which
+ * every applicant tracking system fails to parse. It survives as `exportImage`,
+ * explicitly named, because a PNG is genuinely useful in chat apps — but it is
+ * never offered as "导出 PDF".
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
+ * Verification: `test/` covers the print document's text payload and the styles
+ * that keep app chrome off the page. Verifying the *file* a browser produces
+ * requires the browser's print-to-PDF, so it lives in the manual checklist in
+ * `.scratch/resume-platform/issues/03-browser-print-export.md` rather than in
+ * this suite — see that ticket's Comments for the reasoning.
  */
 export function usePdfExport() {
   const [exporting, setExporting] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [exportingImage, setExportingImage] = useState(false);
 
-  const exportPdf = useCallback(async (resume: ResumeRecord, parsed: ParsedResume) => {
+  const exportPdf = useCallback(async (resume: ResumeRecord, parsed: ParsedResumeWithMetadata) => {
     setExporting(true);
-
     try {
-      // Dynamically import heavy libs
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import('html2canvas-pro'),
-        import('jspdf'),
-      ]);
-
-      // Create off-screen container
-      const container = document.createElement('div');
-      container.style.position = 'fixed';
-      container.style.left = '-9999px';
-      container.style.top = '0';
-      container.style.zIndex = '-1';
-      container.style.background = '#faf6f1';
-      document.body.appendChild(container);
-      containerRef.current = container;
-
-      // Render the print view into the container
-      const { createRoot } = await import('react-dom/client');
-      const root = createRoot(container);
-
-      await new Promise<void>((resolve) => {
-        root.render(
-          <ResumePrintView resume={resume} parsed={parsed} />
-        );
-        // Wait for render + images to load
-        setTimeout(resolve, 800);
-      });
-
-      const printRoot = container.querySelector('#resume-print-root') as HTMLElement;
-      if (!printRoot) {
-        throw new Error('Print root not found');
-      }
-
-      // Capture with html2canvas
-      const canvas = await html2canvas(printRoot, {
-        scale: 2, // High quality
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#faf6f1',
-        logging: false,
-      });
-
-      // Calculate PDF dimensions (A4)
-      const imgWidth = 210; // mm
-      const pageHeight = 297; // mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-
-      // Add pages if content exceeds one page
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position -= pageHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      // Download
-      const fileName = `${resume.name || resume.title || 'resume'}-简历.pdf`;
-      pdf.save(fileName);
-
-      // Cleanup
-      root.unmount();
-      document.body.removeChild(container);
-      containerRef.current = null;
+      await exportResumePdf(resume, parsed);
     } catch (error) {
       console.error('PDF export failed:', error);
       throw error;
@@ -103,5 +46,17 @@ export function usePdfExport() {
     }
   }, []);
 
-  return { exportPdf, exporting };
+  const exportImage = useCallback(async (resume: ResumeRecord, parsed: ParsedResumeWithMetadata) => {
+    setExportingImage(true);
+    try {
+      await exportResumeImage(resume, parsed);
+    } catch (error) {
+      console.error('Image export failed:', error);
+      throw error;
+    } finally {
+      setExportingImage(false);
+    }
+  }, []);
+
+  return { exportPdf, exporting, exportImage, exportingImage, hint: PRINT_EXPORT_HINT };
 }

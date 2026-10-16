@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { ResumeCard } from '@/components/ResumeCard';
-import { StaggerContainer, StaggerItem, Spinner, EmptyState, Input, Button, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
+import { StaggerContainer, StaggerItem, Spinner, EmptyState, Input, Button, ConfirmModal, useToast, ToastContainer, ListLimitNotice } from '@/components/ui';
 import { PageContainer, AuthGuard } from '@/components/layout';
-import { Search, Plus, FileText } from 'lucide-react';
+import { Search, Plus, FileText, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api-client';
+import { readJsonBody } from '@/lib/http-json';
+import { readResumeList, type ResumeListPayload } from '@/lib/resume-list';
+import { resumeListNoticeText, type ListLimitNotice as ListLimitInfo } from '@/lib/list-limit';
 import type { ResumeRecord } from '@/lib/types';
 
 export default function MyResumesPage() {
@@ -22,20 +25,70 @@ export default function MyResumesPage() {
 function MyResumesContent() {
   const { user } = useAuth();
   const [resumes, setResumes] = useState<ResumeRecord[]>([]);
+  const [listNotice, setListNotice] = useState<ListLimitInfo | null>(null);
   const [loadingResumes, setLoadingResumes] = useState(true);
+  /**
+   * Set when the listing request failed, as opposed to returning nothing.
+   *
+   * Without this the two cases were indistinguishable on screen: the `.catch` below emptied
+   * `resumes`, so a failed request rendered the same 「还没有简历」 empty state as a genuinely empty
+   * account. On a user's own resume page that is the worst possible reading — "还没有简历" looks
+   * like **"我的简历被删了"**, and the user's next move is to panic or re-upload, not to retry. The
+   * failure has to be visible to be recoverable.
+   */
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /** Bumped by the retry button to re-run the fetch effect. */
+  const [reloadKey, setReloadKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const { toasts, addToast, removeToast } = useToast();
 
   useEffect(() => {
-    setLoadingResumes(true);
+    let cancelled = false;
+    /*
+     * Nothing is written to state synchronously here, deliberately.
+     *
+     * `setLoadingResumes(true)` would be redundant on mount (`loadingResumes` already initialises to
+     * `true`) and `setLoadError(null)` belongs to the click that retries rather than to every run of
+     * the effect. Both were also cascading renders, which `react-hooks/set-state-in-effect` rejects —
+     * the rule reads the effect body directly, so the fix is to move the writes to their real cause
+     * (the retry handler) instead of appeasing the rule.
+     */
     apiFetch('/api/resumes?scope=mine')
-      .then((res) => res.json())
-      .then((data) => setResumes(data.resumes || []))
-      .catch(() => setResumes([]))
-      .finally(() => setLoadingResumes(false));
-  }, []);
+      .then((res) => readJsonBody<ResumeListPayload>(res, '加载简历列表失败'))
+      .then((result) => {
+        if (cancelled) return;
+        // Checked before `ok` is used, so a failure can never fall through into the empty state.
+        if (!result.ok) {
+          // `resumes` is deliberately left as-is rather than emptied: a failed *refresh* must not
+          // destroy a list that is already on screen. The error is what tells the user the contents
+          // are unknown, so the stale list can stay for reference.
+          setLoadError(result.error);
+          setListNotice(null);
+          return;
+        }
+        // The listing is capped server-side; keep the truncation metadata so the
+        // page can say that older resumes were not returned (工单 09).
+        const { resumes: rows, notice } = readResumeList(result.data);
+        setResumes(rows);
+        setListNotice(notice);
+      })
+      .catch((err: unknown) => {
+        // Reached only if `apiFetch` itself rejected (a transport failure), since `readJsonBody`
+        // reports HTTP errors as values rather than throwing.
+        if (cancelled) return;
+        setLoadError(err instanceof Error ? err.message : '加载简历列表失败，请稍后重试');
+        setListNotice(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingResumes(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const filteredResumes = resumes.filter((r) => {
     const q = searchQuery.toLowerCase();
@@ -99,10 +152,45 @@ function MyResumesContent() {
         />
       </div>
 
+      {/* Truncation notice: the server caps this listing, so say so rather than
+          letting a user conclude their older resumes were deleted. Rendered
+          outside the loading branch so it does not blink on every refetch. */}
+      <ListLimitNotice
+        notice={listNotice}
+        message={listNotice ? resumeListNoticeText(listNotice) : undefined}
+      />
+
       {/* Content */}
       {loadingResumes ? (
         <div className="flex items-center justify-center py-20">
           <Spinner size="lg" label="加载中..." />
+        </div>
+      ) : loadError ? (
+        /*
+         * Checked *before* the empty state. This ordering is the whole fix: a failed request used to
+         * fall through to 「还没有简历」, which on a user's own page reads as "我的简历没了". The
+         * error is shown with a retry because a transient failure is the common case, and the user
+         * needs a way out that is not "reload and hope".
+         */
+        <div className="rounded-[2rem] border border-danger/30 bg-danger/5 px-6 py-10 text-center">
+          <AlertCircle className="mx-auto mb-3 h-7 w-7 text-danger" />
+          <h2 className="mb-1 font-serif text-lg font-semibold text-foreground">
+            简历列表加载失败
+          </h2>
+          <p className="mb-5 text-sm text-default-500">{loadError}</p>
+          <Button
+            variant="bordered"
+            radius="full"
+            onClick={() => {
+              // Cleared here, on the click that retries, rather than on every run of the fetch
+              // effect — the error is only stale because the user asked for another attempt.
+              setLoadError(null);
+              setLoadingResumes(true);
+              setReloadKey((n) => n + 1);
+            }}
+          >
+            重新加载
+          </Button>
         </div>
       ) : (
         <AnimatePresence mode="wait">

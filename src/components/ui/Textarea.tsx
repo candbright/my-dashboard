@@ -41,6 +41,16 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           ref={ref}
           id={id}
+          // See `Input` for the reasoning: colour alone does not tell assistive tech that a field
+          // is invalid, and an unassociated message is not read as this field's description.
+          aria-invalid={hasError || undefined}
+          aria-describedby={
+            hasError && errorMessage
+              ? `${id}-error`
+              : description
+                ? `${id}-description`
+                : undefined
+          }
           className={cn(
             'w-full rounded-full px-3 py-2.5 text-sm transition-all duration-500',
             'text-foreground placeholder:text-default-400 outline-none',
@@ -55,10 +65,14 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {description && !hasError && (
-          <p className="text-xs text-default-400">{description}</p>
+          <p id={`${id}-description`} className="text-xs text-default-400">
+            {description}
+          </p>
         )}
         {errorMessage && (
-          <p className="text-xs text-danger">{errorMessage}</p>
+          <p id={`${id}-error`} role="alert" className="text-xs text-danger">
+            {errorMessage}
+          </p>
         )}
       </div>
     );

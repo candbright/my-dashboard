@@ -1,55 +1,69 @@
 'use client';
 
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
+import { ResumeMarkdown } from '@/components/ResumeMarkdown';
+import { blocksOf } from '@/lib/resume-blocks';
+import { resolveSectionKind } from '@/lib/resume-section';
+import type { SectionKind } from '@/lib/resume-model';
 import {
-  Mail, Phone, MapPin, Globe,
   ArrowLeft, Briefcase, GraduationCap, Code, FolderOpen, User,
-  ExternalLink, Calendar, Link2,
+  Calendar,
 } from 'lucide-react';
 
-// Brand icons not in lucide-react
-function GithubIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
-      <path d="M9 18c-4.51 2-5-2-7-2" />
-    </svg>
-  );
-}
-
-function LinkedinIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
-      <rect width="4" height="12" x="2" y="9" />
-      <circle cx="4" cy="4" r="2" />
-    </svg>
-  );
-}
+import { contactEntries, displayName, resolvePhoto } from '@/components/resume-render/contact';
+import { contactIcon } from '@/components/resume-render/icons';
+import { presentationFromRecord } from '@/lib/resume-presentation';
 import Link from 'next/link';
 import type { ResumeRecord } from '@/lib/types';
-import type { ParsedResume, ResumeSection, ResumeSectionItem } from '@/lib/resume-parser';
+import type {
+  ParsedResumeWithMetadata,
+  ResumeSection,
+  ResumeSectionItem,
+} from '@/lib/resume-model';
 import { FadeIn, ScrollReveal } from './ui/Animations';
 
 interface ResumeDisplayProps {
   resume: ResumeRecord;
-  parsed: ParsedResume;
+  /**
+   * Must be metadata-normalised: every value here goes straight into a text node,
+   * `src`, or `href`, so the loose `ParsedResume` (whose frontmatter can hold whatever
+   * YAML produced) would be a lie. `withMetadata` produces this type; call it wherever a
+   * resume is loaded.
+   */
+  parsed: ParsedResumeWithMetadata;
   /** Hide the floating back button */
   hideBackButton?: boolean;
   /** Hide the ResumeVault footer */
   hideFooter?: boolean;
 }
 
-// Map section titles to icons
-function getSectionIcon(title: string) {
-  const lower = title.toLowerCase();
-  if (lower.includes('about') || lower.includes('summary') || title.includes('关于') || title.includes('简介') || title.includes('个人')) return User;
-  if (lower.includes('experience') || lower.includes('work') || title.includes('工作') || title.includes('经历') || title.includes('经验')) return Briefcase;
-  if (lower.includes('education') || title.includes('教育') || title.includes('学历')) return GraduationCap;
-  if (lower.includes('skill') || lower.includes('tech') || title.includes('技能') || title.includes('技术')) return Code;
-  if (lower.includes('project') || title.includes('项目') || title.includes('作品')) return FolderOpen;
-  return Briefcase;
+/**
+ * The icon for a section kind.
+ *
+ * Takes the **kind**, not the title (ticket 18 task 6). It used to take the title and repeat
+ * the whole keyword list — a third copy of a classification the server had already made,
+ * which is why `## 教育经历` drew a briefcase here: this list tested `经历` before `教育`.
+ *
+ * `other` and the default both get the briefcase, which is what an unrecognised section got
+ * before; there is no icon that means "unknown section", and a neutral one is correct.
+ */
+function getSectionIcon(kind: SectionKind) {
+  switch (kind) {
+    case 'summary':
+      return User;
+    case 'experience':
+      return Briefcase;
+    case 'education':
+      return GraduationCap;
+    case 'skills':
+      return Code;
+    case 'projects':
+      return FolderOpen;
+    case 'other':
+    default:
+      return Briefcase;
+  }
 }
 
 export function ResumeDisplay({ resume, parsed, hideBackButton, hideFooter }: ResumeDisplayProps) {
@@ -60,14 +74,30 @@ export function ResumeDisplay({ resume, parsed, hideBackButton, hideFooter }: Re
 
   const { frontmatter, sections } = parsed;
 
-  const contactLinks = [
-    { icon: Mail, value: frontmatter.email, href: `mailto:${frontmatter.email}`, label: 'Email' },
-    { icon: Phone, value: frontmatter.phone, href: `tel:${frontmatter.phone}`, label: 'Phone' },
-    { icon: MapPin, value: frontmatter.location, href: null, label: 'Location' },
-    { icon: Globe, value: frontmatter.website, href: frontmatter.website, label: 'Website' },
-    { icon: GithubIcon, value: frontmatter.github, href: frontmatter.github, label: 'GitHub' },
-    { icon: LinkedinIcon, value: frontmatter.linkedin, href: frontmatter.linkedin, label: 'LinkedIn' },
-  ].filter((l) => l.value);
+  /**
+   * The stored presentation, resolved. Read here rather than passed in so existing call sites keep
+   * working — `resume.presentation` is already on the record the detail route returns.
+   *
+   * `useMemo` on `resume.presentation` because this component re-renders on every scroll frame via
+   * `useScroll`; re-parsing the presentation each time would do real work dozens of times a second
+   * for a value that cannot change without the record changing.
+   */
+  const presentation = useMemo(() => presentationFromRecord(resume.presentation), [resume.presentation]);
+
+  // The photo now honours `presentation.photo`, which it previously ignored entirely — the flag
+  // existed since ticket 19 and nothing read it. See `resolvePhoto`.
+  const photo = resolvePhoto(frontmatter, presentation);
+
+  const contacts = useMemo(
+    () =>
+      contactEntries(frontmatter).map((entry) => ({
+        ...entry,
+        Icon: contactIcon(entry.label),
+      })),
+    [frontmatter]
+  );
+
+  const name = displayName(frontmatter, resume.title);
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background">
@@ -106,33 +136,35 @@ export function ResumeDisplay({ resume, parsed, hideBackButton, hideFooter }: Re
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary opacity-10 rounded-full blur-3xl" />
           <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-secondary opacity-10 rounded-full blur-3xl" />
           <div className="absolute inset-0 dot-grid opacity-30" />
-          {/* Fade-to-background gradient at bottom */}
-          <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-b from-transparent via-transparent to-background" />
+          {/* Softens the hero's edge into the next section.
+              This was `bg-gradient-to-b from-transparent via-transparent
+              to-background`, which AGENTS.md bans (gradients are allowed only in
+              `.gradient-text`). Replaced with a solid `bg-background` band of the
+              same height, which does the same job in this layer — the div sits at
+              30% opacity inside the decorative stack at line 106, so the transition
+              was already muted (ticket 08). A true alpha ramp would need a
+              sanctioned gradient utility; if one is added later, this is where it
+              belongs. */}
+          <div className="absolute bottom-0 left-0 right-0 h-40 bg-background" />
         </div>
 
         <div className="relative max-w-4xl mx-auto px-6 text-center">
           {/* Avatar */}
-          {frontmatter.avatar && (
+          {photo && (
             <FadeIn>
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 className="w-28 h-28 mx-auto mb-8 rounded-full overflow-hidden ring-4 ring-background shadow-sm shadow-primary/10"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={frontmatter.avatar}
-                  alt={frontmatter.name || 'Avatar'}
-                  className="w-full h-full object-cover"
-                />
+                <img src={photo} alt={name || 'Avatar'} className="w-full h-full object-cover" />
               </motion.div>
             </FadeIn>
           )}
 
           {/* Name */}
           <FadeIn delay={0.1}>
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4">
-              {frontmatter.name || resume.title}
-            </h1>
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4">{name}</h1>
           </FadeIn>
 
           {/* Title */}
@@ -147,7 +179,7 @@ export function ResumeDisplay({ resume, parsed, hideBackButton, hideFooter }: Re
           {/* Contact row */}
           <FadeIn delay={0.3}>
             <div className="flex flex-wrap justify-center gap-4 mb-8">
-              {contactLinks.map(({ icon: Icon, value, href, label }) => (
+              {contacts.map(({ Icon, display, value, href, label }) => (
                 <motion.div
                   key={label}
                   whileHover={{ y: -2 }}
@@ -156,15 +188,18 @@ export function ResumeDisplay({ resume, parsed, hideBackButton, hideFooter }: Re
                   <Icon className="w-4 h-4 text-primary" />
                   {href ? (
                     <a
-                      href={href}
+                      href={value}
                       target={href.startsWith('http') ? '_blank' : undefined}
                       rel="noopener noreferrer"
                       className="hover:text-primary transition-colors"
                     >
-                      {formatContactValue(value!, label)}
+                      {display}
                     </a>
                   ) : (
-                    <span>{value}</span>
+                    // Previously this branch rendered the raw value while the linked branch ran the
+                    // formatter, so a location and a website were treated by different rules. The
+                    // shared entry carries one display form for both.
+                    <span>{display}</span>
                   )}
                 </motion.div>
               ))}
@@ -197,8 +232,10 @@ export function ResumeDisplay({ resume, parsed, hideBackButton, hideFooter }: Re
 }
 
 function SectionBlock({ section, index }: { section: ResumeSection; index: number }) {
-  const Icon = getSectionIcon(section.title);
-  const isSkills = section.title.toLowerCase().includes('skill') || section.title.toLowerCase().includes('tech') || section.title.includes('技能') || section.title.includes('技术');
+  // The kind comes from the server when it sent one, and from the shared local classifier
+  // otherwise — never from a title test written here (ticket 18 task 6).
+  const kind = resolveSectionKind(section);
+  const Icon = getSectionIcon(kind);
 
   return (
     <section>
@@ -210,26 +247,7 @@ function SectionBlock({ section, index }: { section: ResumeSection; index: numbe
         <h2 className="text-2xl font-bold tracking-tight">{section.title}</h2>
       </div>
 
-      {/* Section Content */}
-      {section.content && !isSkills && (
-        <p className="text-default-500 leading-relaxed mb-6 text-lg">
-          {section.content}
-        </p>
-      )}
-
-      {/* Skills as tags */}
-      {isSkills && (
-        <SkillsGrid section={section} />
-      )}
-
-      {/* Items (Experience, Education, Projects) */}
-      {!isSkills && section.items.length > 0 && (
-        <div className="space-y-6">
-          {section.items.map((item, i) => (
-            <TimelineItem key={i} item={item} isLast={i === section.items.length - 1} />
-          ))}
-        </div>
-      )}
+      <SectionBody section={section} />
     </section>
   );
 }
@@ -272,7 +290,9 @@ function TimelineItem({ item, isLast }: { item: ResumeSectionItem; isLast: boole
             {item.details.map((detail, i) => (
               <li key={i} className="flex items-start gap-2 text-sm text-default-500">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                {detail}
+                {/* Inline: a detail is one line of a list, so block elements would
+                    break the bullet's layout. */}
+                <ResumeMarkdown inline>{detail}</ResumeMarkdown>
               </li>
             ))}
           </ul>
@@ -282,39 +302,38 @@ function TimelineItem({ item, isLast }: { item: ResumeSectionItem; isLast: boole
   );
 }
 
-function SkillsGrid({ section }: { section: ResumeSection }) {
-  // Parse skills from items and content
-  const skills: string[] = [];
+function SectionBody({ section }: { section: ResumeSection }) {
+  const blocks = blocksOf(section);
+  return (
+    <div className="space-y-6">
+      {blocks.map((block, index) => {
+        if (block.type === 'paragraph') {
+          return (
+            <ResumeMarkdown key={`p-${index}`} className="text-lg text-default-500">
+              {block.text}
+            </ResumeMarkdown>
+          );
+        }
+        if (block.type === 'chips') {
+          return <SkillsGrid key={`c-${index}`} chips={block.chips} />;
+        }
+        const next = blocks[index + 1];
+        return (
+          <TimelineItem
+            key={`e-${index}`}
+            item={block.item}
+            isLast={next?.type !== 'entry'}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
-  // From items
-  section.items.forEach((item) => {
-    item.details.forEach((d) => {
-      d.split(',').forEach((s) => skills.push(s.trim()));
-    });
-    if (item.title) {
-      item.title.split(',').forEach((s) => skills.push(s.trim()));
-    }
-  });
-
-  // From content - parse list items and comma-separated values
-  if (section.content) {
-    section.content.split('\n').forEach((line) => {
-      const cleaned = line.replace(/^[-*]\s*/, '').trim();
-      if (cleaned) {
-        cleaned.split(',').forEach((s) => {
-          const skill = s.trim();
-          if (skill) skills.push(skill);
-        });
-      }
-    });
-  }
-
-  // Remove duplicates and empty
-  const uniqueSkills = [...new Set(skills.filter(Boolean))];
-
+function SkillsGrid({ chips }: { chips: string[] }) {
   return (
     <div className="flex flex-wrap gap-2.5">
-      {uniqueSkills.map((skill, i) => (
+      {chips.map((skill, i) => (
         <motion.span
           key={skill}
           initial={{ opacity: 0, scale: 0.8 }}
@@ -329,24 +348,4 @@ function SkillsGrid({ section }: { section: ResumeSection }) {
       ))}
     </div>
   );
-}
-
-function formatContactValue(value: string, label: string): string {
-  if (label === 'GitHub' || label === 'LinkedIn') {
-    try {
-      const url = new URL(value);
-      return url.pathname.replace(/^\//, '').replace(/\/$/, '') || value;
-    } catch {
-      return value;
-    }
-  }
-  if (label === 'Website') {
-    try {
-      const url = new URL(value);
-      return url.hostname;
-    } catch {
-      return value;
-    }
-  }
-  return value;
 }

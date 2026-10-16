@@ -10,6 +10,7 @@ const sidebarSections = [
     title: '通用',
     items: [
       { href: '/settings', label: '账号' },
+      { href: '/settings/activity', label: '我的活动' },
     ],
   },
   {
@@ -65,9 +66,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         </motion.aside>
 
         {/* Content */}
-        <main className="flex-1 min-w-0">
+        {/* Not a <main>: the document already has one in the root layout. */}
+        <div className="flex-1 min-w-0">
           {children}
-        </main>
+        </div>
       </div>
     </AuthGuard>
   );

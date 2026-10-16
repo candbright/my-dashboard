@@ -170,6 +170,13 @@ export interface ApprovalListPayload {
   success: boolean;
   requests: ApprovalRequestView[];
   total: number;
+  /**
+   * True when the queue held more requests than the single-request limit
+   * (工单 09). Present only from the newer backend; absent means "not truncated".
+   */
+  truncated?: boolean;
+  /** The limit the server applied, for the notice's "单次上限 N 条" wording. */
+  limit?: number;
   counts: Record<string, number>;
   allTotal: number;
 }

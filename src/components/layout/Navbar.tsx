@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { LogIn, LogOut, Settings, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { GuardedLink as Link, useLeaveGuard } from '@/contexts/LeaveGuardContext';
 import { useState } from 'react';
 import { Button, Spinner, Avatar, Divider } from '@/components/ui';
 import { cn } from '@/lib/cn';
@@ -12,9 +12,15 @@ import { cn } from '@/lib/cn';
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const leaveGuard = useLeaveGuard();
   const { user, loading, logout, isAdmin, isAuthenticated } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const go = (href: string) => {
+    if (leaveGuard?.intercept({ kind: 'href', href })) return;
+    router.push(href);
+  };
 
   // Hide on resume display pages
   if (pathname.startsWith('/resume/')) return null;
@@ -27,13 +33,17 @@ export function Navbar() {
   ];
 
   const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await logout();
-      router.push('/');
-    } finally {
-      setLoggingOut(false);
-    }
+    const run = async () => {
+      setLoggingOut(true);
+      try {
+        await logout();
+        router.push('/');
+      } finally {
+        setLoggingOut(false);
+      }
+    };
+    if (leaveGuard?.intercept({ kind: 'run', run })) return;
+    await run();
   };
 
   return (
@@ -97,7 +107,8 @@ export function Navbar() {
                 variant="light"
                 isIconOnly
                 size="sm"
-                onClick={() => router.push('/settings')}
+                aria-label="账号设置"
+                onClick={() => go('/settings')}
               >
                 <Settings className="w-4 h-4" />
               </Button>
@@ -105,6 +116,7 @@ export function Navbar() {
                 variant="light"
                 isIconOnly
                 size="sm"
+                aria-label="退出登录"
                 onClick={handleLogout}
                 disabled={loggingOut}
                 isLoading={loggingOut}
@@ -117,7 +129,7 @@ export function Navbar() {
               <Button
                 variant="light"
                 size="sm"
-                onClick={() => router.push('/login')}
+                onClick={() => go('/login')}
                 startContent={<LogIn className="w-4 h-4" />}
               >
                 登录
@@ -127,7 +139,7 @@ export function Navbar() {
                 color="primary"
                 size="sm"
                 radius="full"
-                onClick={() => router.push('/register')}
+                onClick={() => go('/register')}
               >
                 注册
               </Button>
@@ -141,6 +153,9 @@ export function Navbar() {
           isIconOnly
           size="sm"
           className="md:hidden"
+          aria-label={mobileOpen ? '关闭菜单' : '打开菜单'}
+          aria-expanded={mobileOpen}
+          aria-controls="navbar-mobile-menu"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -150,6 +165,7 @@ export function Navbar() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <motion.div
+          id="navbar-mobile-menu"
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
@@ -165,7 +181,7 @@ export function Navbar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => setMobileOpen(false)}
+                    onNavigate={() => setMobileOpen(false)}
                     className={cn(
                       'block px-4 py-2.5 rounded-xl text-sm font-medium transition-colors',
                       isActive
@@ -188,7 +204,7 @@ export function Navbar() {
               <div className="space-y-1">
                 <Link
                   href="/settings"
-                  onClick={() => setMobileOpen(false)}
+                  onNavigate={() => setMobileOpen(false)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm hover:bg-default-100 transition-colors"
                 >
                   <Avatar name={user?.username} size="sm" />
@@ -213,7 +229,7 @@ export function Navbar() {
                   fullWidth
                   onClick={() => {
                     setMobileOpen(false);
-                    router.push('/login');
+                    go('/login');
                   }}
                 >
                   登录
@@ -225,7 +241,7 @@ export function Navbar() {
                   fullWidth
                   onClick={() => {
                     setMobileOpen(false);
-                    router.push('/register');
+                    go('/register');
                   }}
                 >
                   注册

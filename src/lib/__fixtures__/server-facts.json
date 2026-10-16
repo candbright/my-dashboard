@@ -1,0 +1,42 @@
+{
+  "metadata_fields": [
+    "name",
+    "job_title",
+    "email",
+    "phone",
+    "location",
+    "website",
+    "github",
+    "linkedin",
+    "avatar",
+    "summary"
+  ],
+  "metadata_limits": {
+    "avatar": 500,
+    "email": 254,
+    "github": 500,
+    "job_title": 100,
+    "linkedin": 500,
+    "location": 100,
+    "name": 100,
+    "phone": 50,
+    "summary": 2000,
+    "website": 500
+  },
+  "grant": {
+    "resource_types": [
+      "",
+      "resume",
+      "ai"
+    ],
+    "permissions": [
+      "publish",
+      "use_global"
+    ],
+    "statuses": [
+      "pending",
+      "approved",
+      "rejected"
+    ]
+  }
+}

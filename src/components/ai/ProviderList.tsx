@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Check, KeyRound, Pencil, Plug, Plus, Trash2 } from 'lucide-react';
 import {
   Button,
   Chip,
@@ -46,8 +46,12 @@ interface ProviderListProps {
   /** Rendered under the heading, e.g. the global key field. */
   action?: React.ReactNode;
   emptyHint?: string;
-  /** Per-provider inline status, e.g. "当前生效" or "缺少 API Key". */
+  /** Per-provider inline status, e.g. "当前生效". */
   renderStatus?: (provider: ProviderView) => React.ReactNode;
+  /** Test this provider's stored credential. */
+  onTest?: (provider: ProviderView) => void;
+  /** Provider id whose connection test is in flight. */
+  testingId?: string | null;
 }
 
 /**
@@ -73,6 +77,8 @@ export function ProviderList({
   action,
   emptyHint,
   renderStatus,
+  onTest,
+  testingId,
 }: ProviderListProps) {
   if (loading) {
     return (
@@ -154,11 +160,6 @@ export function ProviderList({
                         个人
                       </Chip>
                     )}
-                    {provider.isGlobalActive && (
-                      <Chip variant="flat" color="secondary" size="sm">
-                        全局 API 使用
-                      </Chip>
-                    )}
                     {!provider.selectable && (
                       <Chip variant="flat" color="warning" size="sm">
                         未配置完成
@@ -175,16 +176,22 @@ export function ProviderList({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  {provider.keyConfigured ? (
-                    <Chip variant="flat" color="success" size="sm">
-                      已配置 Key
-                    </Chip>
-                  ) : (
-                    <Chip variant="flat" color="default" size="sm">
-                      未配置 Key
-                    </Chip>
-                  )}
                   {renderStatus?.(provider)}
+                  {onTest && (
+                    <Button
+                      variant="bordered"
+                      size="sm"
+                      onClick={() => onTest(provider)}
+                      isLoading={testingId === provider.id}
+                      isDisabled={
+                        !provider.keyConfigured ||
+                        (testingId !== null && testingId !== provider.id)
+                      }
+                      startContent={<Plug className="h-3.5 w-3.5" />}
+                    >
+                      测试连接
+                    </Button>
+                  )}
 
                   {manageable && (
                     <>

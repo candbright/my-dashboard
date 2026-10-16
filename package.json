@@ -6,14 +6,21 @@
     "dev": "next dev --port 30002",
     "build": "next build",
     "start": "next start --port 30002",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify:print": "node --no-warnings scripts/verify-print-export.mjs",
+    "verify:ats": "node --no-warnings --import ./scripts/alias-loader.mjs scripts/verify-ats-report.mjs",
+    "verify:template": "node --no-warnings scripts/verify-template.mjs"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4",
     "clsx": "^2.1.1",
     "date-fns": "^4.2.1",
     "framer-motion": "^12.39.0",
     "gray-matter": "^4.0.3",
     "html2canvas-pro": "^2.0.2",
+    "js-yaml": "^4.3.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
@@ -22,17 +29,25 @@
     "react-markdown": "^10.1.0",
     "rehype-highlight": "^7.0.2",
     "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "^4",
-    "@tailwindcss/postcss": "^4"
+    "tailwindcss": "^4"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/hast": "^3.0.5",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "typescript": "^5"
+    "happy-dom": "^21.0.1",
+    "pdfjs-dist": "^6.4.299",
+    "playwright": "^1.64.0",
+    "rehype-parse": "^9.0.1",
+    "rehype-stringify": "^10.0.1",
+    "typescript": "^5",
+    "vitest": "^5.0.4"
   }
 }
