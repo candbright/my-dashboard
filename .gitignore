@@ -50,8 +50,11 @@ next-env.d.ts
 # nested clone of https://github.com/Leonxlnx/taste-skill (skills copied into .agents/skills)
 /.taste-skill-src/
 
-# local agent skills checkout and session scratch
-/.agents/
+# agent skill bytecode
+**/__pycache__/
+*.pyc
+
+# session scratch
 /.scratch/pagination-probe/
 /.scratch/*.png
 /.scratch/*.sql
