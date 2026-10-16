@@ -1,0 +1,156 @@
+.agents/skills/brandkit/SKILL.md
+  h_ca34b32b88a7b6 1-843
+.agents/skills/brutalist-skill/SKILL.md
+  h_ca34b32b88a7b6 1-92
+.agents/skills/gpt-tasteskill/SKILL.md
+  h_ca34b32b88a7b6 1-75
+.agents/skills/image-to-code-skill/SKILL.md
+  h_ca34b32b88a7b6 1-1228
+.agents/skills/imagegen-frontend-mobile/SKILL.md
+  h_ca34b32b88a7b6 1-1465
+.agents/skills/imagegen-frontend-web/SKILL.md
+  h_ca34b32b88a7b6 1-987
+.agents/skills/minimalist-skill/SKILL.md
+  h_ca34b32b88a7b6 1-86
+.agents/skills/output-skill/SKILL.md
+  h_ca34b32b88a7b6 1-49
+.agents/skills/redesign-skill/SKILL.md
+  h_ca34b32b88a7b6 1-181
+.agents/skills/soft-skill/SKILL.md
+  h_ca34b32b88a7b6 1-98
+.agents/skills/stitch-skill/DESIGN.md
+  h_ca34b32b88a7b6 1-121
+.agents/skills/stitch-skill/SKILL.md
+  h_ca34b32b88a7b6 1-184
+.agents/skills/taste-skill-v1/SKILL.md
+  h_ca34b32b88a7b6 1-226
+.agents/skills/taste-skill-v2-experimental/SKILL.md
+  h_ca34b32b88a7b6 1-1228
+.agents/skills/taste-skill/README.md
+  h_ca34b32b88a7b6 1-81
+.agents/skills/taste-skill/SKILL.md
+  h_ca34b32b88a7b6 1-414
+.agents/skills/taste-skill/assets/base.css
+  h_ca34b32b88a7b6 1-100
+.agents/skills/taste-skill/assets/base.js
+  h_ca34b32b88a7b6 1-37
+.agents/skills/taste-skill/evals/evals.json
+  h_ca34b32b88a7b6 1-48
+.agents/skills/taste-skill/library/directions.json
+  h_ca34b32b88a7b6 1-1078
+.agents/skills/taste-skill/library/heroes.json
+  h_ca34b32b88a7b6 1-894
+.agents/skills/taste-skill/library/motions.json
+  h_ca34b32b88a7b6 1-57
+.agents/skills/taste-skill/library/palettes.json
+  h_ca34b32b88a7b6 1-1485
+.agents/skills/taste-skill/library/photos.json
+  h_ca34b32b88a7b6 1-7240
+.agents/skills/taste-skill/library/sections.json
+  h_ca34b32b88a7b6 1-4136
+.agents/skills/taste-skill/library/sites.json
+  h_ca34b32b88a7b6 1-7274
+.agents/skills/taste-skill/library/type.json
+  h_ca34b32b88a7b6 1-2024
+.agents/skills/taste-skill/references/colour.md
+  h_ca34b32b88a7b6 1-141
+.agents/skills/taste-skill/references/copy.md
+  h_ca34b32b88a7b6 1-177
+.agents/skills/taste-skill/references/critique.md
+  h_ca34b32b88a7b6 1-171
+.agents/skills/taste-skill/references/imagery.md
+  h_ca34b32b88a7b6 1-377
+.agents/skills/taste-skill/references/layout.md
+  h_ca34b32b88a7b6 1-178
+.agents/skills/taste-skill/references/motion.md
+  h_ca34b32b88a7b6 1-292
+.agents/skills/taste-skill/references/research.md
+  h_ca34b32b88a7b6 1-306
+.agents/skills/taste-skill/references/tells.md
+  h_ca34b32b88a7b6 1-115
+.agents/skills/taste-skill/references/type.md
+  h_ca34b32b88a7b6 1-170
+.agents/skills/taste-skill/scripts/assets.mjs
+  h_ca34b32b88a7b6 1-865
+.agents/skills/taste-skill/scripts/draw.mjs
+  h_ca34b32b88a7b6 1-525
+.agents/skills/taste-skill/scripts/inspect.mjs
+  h_ca34b32b88a7b6 1-205
+.agents/skills/taste-skill/scripts/lib/cdp.mjs
+  h_ca34b32b88a7b6 1-205
+.agents/skills/taste-skill/scripts/lib/probe.mjs
+  h_ca34b32b88a7b6 1-569
+.agents/skills/taste-skill/scripts/lib/rules.mjs
+  h_ca34b32b88a7b6 1-137
+.agents/skills/taste-skill/scripts/lint.mjs
+  h_ca34b32b88a7b6 1-108
+.agents/skills/ui-ux-pro-max/SKILL.md
+  h_ca34b32b88a7b6 1-288
+.agents/skills/ui-ux-pro-max/data/charts.csv
+  h_ca34b32b88a7b6 1-26
+.agents/skills/ui-ux-pro-max/data/colors.csv
+  h_ca34b32b88a7b6 1-97
+.agents/skills/ui-ux-pro-max/data/icons.csv
+  h_ca34b32b88a7b6 1-101
+.agents/skills/ui-ux-pro-max/data/landing.csv
+  h_ca34b32b88a7b6 1-31
+.agents/skills/ui-ux-pro-max/data/products.csv
+  h_ca34b32b88a7b6 1-97
+.agents/skills/ui-ux-pro-max/data/react-performance.csv
+  h_ca34b32b88a7b6 1-45
+.agents/skills/ui-ux-pro-max/data/stacks/astro.csv
+  h_ca34b32b88a7b6 1-54
+.agents/skills/ui-ux-pro-max/data/stacks/flutter.csv
+  h_ca34b32b88a7b6 1-53
+.agents/skills/ui-ux-pro-max/data/stacks/html-tailwind.csv
+  h_ca34b32b88a7b6 1-56
+.agents/skills/ui-ux-pro-max/data/stacks/jetpack-compose.csv
+  h_ca34b32b88a7b6 1-53
+.agents/skills/ui-ux-pro-max/data/stacks/nextjs.csv
+  h_ca34b32b88a7b6 1-53
+.agents/skills/ui-ux-pro-max/data/stacks/nuxt-ui.csv
+  h_ca34b32b88a7b6 1-51
+.agents/skills/ui-ux-pro-max/data/stacks/nuxtjs.csv
+  h_ca34b32b88a7b6 1-59
+.agents/skills/ui-ux-pro-max/data/stacks/react-native.csv
+  h_ca34b32b88a7b6 1-52
+.agents/skills/ui-ux-pro-max/data/stacks/react.csv
+  h_ca34b32b88a7b6 1-54
+.agents/skills/ui-ux-pro-max/data/stacks/shadcn.csv
+  h_ca34b32b88a7b6 1-61
+.agents/skills/ui-ux-pro-max/data/stacks/svelte.csv
+  h_ca34b32b88a7b6 1-54
+.agents/skills/ui-ux-pro-max/data/stacks/swiftui.csv
+  h_ca34b32b88a7b6 1-51
+.agents/skills/ui-ux-pro-max/data/stacks/vue.csv
+  h_ca34b32b88a7b6 1-50
+.agents/skills/ui-ux-pro-max/data/styles.csv
+  h_ca34b32b88a7b6 1-68
+.agents/skills/ui-ux-pro-max/data/typography.csv
+  h_ca34b32b88a7b6 1-58
+.agents/skills/ui-ux-pro-max/data/ui-reasoning.csv
+  h_ca34b32b88a7b6 1-101
+.agents/skills/ui-ux-pro-max/data/ux-guidelines.csv
+  h_ca34b32b88a7b6 1-100
+.agents/skills/ui-ux-pro-max/data/web-interface.csv
+  h_ca34b32b88a7b6 1-31
+.agents/skills/ui-ux-pro-max/scripts/core.py
+  h_ca34b32b88a7b6 1-253
+.agents/skills/ui-ux-pro-max/scripts/design_system.py
+  h_ca34b32b88a7b6 1-1067
+.agents/skills/ui-ux-pro-max/scripts/search.py
+  h_ca34b32b88a7b6 1-114
+.gitignore
+  h_ca34b32b88a7b6 53-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "82e707047946b0d806ee79a7cb55412b22b553c1",
+  "prompts": {},
+  "humans": {
+    "h_ca34b32b88a7b6": {
+      "author": "candbright <candbright@outlook.com>"
+    }
+  }
+}
