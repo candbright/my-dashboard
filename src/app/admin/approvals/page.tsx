@@ -11,6 +11,7 @@ import {
   Card,
   Chip,
   EmptyState,
+  ListLimitNotice,
   Pressable,
   Spinner,
   Textarea,
@@ -20,6 +21,12 @@ import {
 import { cn } from '@/lib/cn';
 import { decideApproval, listApprovals } from '@/lib/api-client';
 import { APPROVAL_FILTERS, type ApprovalRequestView } from '@/lib/ai-providers';
+import {
+  approvalListNoticeText,
+  buildListLimitNotice,
+  APPROVAL_LIST_DEFAULT_LIMIT,
+  type ListLimitNotice as ListLimitInfo,
+} from '@/lib/list-limit';
 
 /**
  * 审核管理 — the single approvals queue.
@@ -37,6 +44,7 @@ export default function ApprovalsPage() {
   const [requests, setRequests] = useState<ApprovalRequestView[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [allTotal, setAllTotal] = useState(0);
+  const [listNotice, setListNotice] = useState<ListLimitInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [processing, setProcessing] = useState<string | null>(null);
@@ -53,6 +61,12 @@ export default function ApprovalsPage() {
         setRequests(payload.requests);
         setCounts(payload.counts);
         setAllTotal(payload.allTotal);
+        // The queue is capped server-side and used to report a `total` derived
+        // from the already-truncated slice, so a 431-item queue looked like 200
+        // (工单 09). Now the server reports the real count and we surface it.
+        setListNotice(
+          buildListLimitNotice(payload, payload.requests.length, APPROVAL_LIST_DEFAULT_LIMIT)
+        );
       } catch (err) {
         addToast('error', err instanceof Error ? err.message : '获取审核列表失败');
       } finally {
@@ -109,8 +123,13 @@ export default function ApprovalsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
       >
-        <h1 className="text-2xl font-bold tracking-tight mb-1">审核管理</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-serif mb-1">审核管理</h1>
         <p className="text-sm text-default-500 mb-6">{allTotal} 条待处理申请</p>
+
+        <ListLimitNotice
+          notice={listNotice}
+          message={listNotice ? approvalListNoticeText(listNotice) : undefined}
+        />
 
         <div className="mb-6 flex flex-wrap gap-2">
           {APPROVAL_FILTERS.map((item) => {

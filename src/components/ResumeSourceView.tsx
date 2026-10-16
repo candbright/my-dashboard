@@ -4,15 +4,34 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Copy, Check, ArrowLeft, Download } from 'lucide-react';
 import { Button, Card } from '@/components/ui';
+import { resumeMarkdownExport } from '@/lib/resume-builder';
+import type { ResumeMetadataView } from '@/lib/resume-model';
 
 interface ResumeSourceViewProps {
   markdown: string;
+  /**
+   * The resume's metadata, so the **download** can re-attach frontmatter (ticket 18).
+   *
+   * Optional because the builder (`ResumeBuilderPage`) also renders this view and has no
+   * saved record yet — the draft's metadata is already in its own Markdown. When it is
+   * absent the download falls back to the document as given.
+   */
+  metadata?: ResumeMetadataView;
   onBack: () => void;
 }
 
-export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
+export function ResumeSourceView({ markdown, metadata, onBack }: ResumeSourceViewProps) {
   const [copied, setCopied] = useState(false);
 
+  // The document on the server is body-only by design (ADR-0003), so the on-screen source
+  // shows exactly what is stored — including that it has no frontmatter. The **download**
+  // is the portable artefact, and ADR-0003 requires it to carry valid YAML frontmatter, so
+  // the metadata is re-attached from the columns there and only there.
+  const exportText = metadata ? resumeMarkdownExport(metadata, markdown) : markdown;
+
+  // Copy matches what the user is looking at (the stored document). Handing them different
+  // text than the pane they just read is its own kind of lie, and the download button is
+  // right beside it for the portable form.
   const handleCopy = async () => {
     await navigator.clipboard.writeText(markdown);
     setCopied(true);
@@ -20,7 +39,7 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
   };
 
   const handleDownload = () => {
-    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const blob = new Blob([exportText], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -29,23 +48,30 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
     URL.revokeObjectURL(url);
   };
 
-  // Simple syntax highlighting for Markdown
+  // Simple syntax highlighting for Markdown, in design tokens only.
+  //
+  // This used to use `text-purple-400` / `text-blue-400` / `text-cyan-400` /
+  // `text-green-400` — cool hues that `AGENTS.md` bans outright (ticket 08). The
+  // mapping below keeps each line class visually distinct using only sanctioned
+  // tokens, and deliberately leans on weight as well as colour so it still reads
+  // in a monochrome or low-vision context.
   const highlightedLines = markdown.split('\n').map((line, i) => {
     let className = 'text-foreground';
-    const prefix = '';
 
     if (line.startsWith('---')) {
-      className = 'text-purple-400';
+      // Frontmatter fence.
+      className = 'text-default-400';
     } else if (line.match(/^##\s/)) {
-      className = 'text-blue-400 font-semibold';
+      className = 'text-primary font-semibold';
     } else if (line.match(/^###\s/)) {
-      className = 'text-cyan-400 font-medium';
+      className = 'text-secondary font-medium';
     } else if (line.match(/^\*[^*]+\*$/)) {
-      className = 'text-amber-400 italic';
+      className = 'text-warning italic';
     } else if (line.match(/^[-*]\s/)) {
-      className = 'text-green-400';
+      className = 'text-success';
     } else if (line.match(/^[a-z_]+:/)) {
-      className = 'text-orange-400';
+      // A frontmatter key.
+      className = 'text-secondary';
     } else if (line.trim() === '') {
       className = 'text-transparent';
     }
@@ -65,7 +91,7 @@ export function ResumeSourceView({ markdown, onBack }: ResumeSourceViewProps) {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">源文件</h1>
+            <h1 className="text-2xl font-bold tracking-tight font-serif">源文件</h1>
             <p className="text-sm text-default-500">Markdown 格式</p>
           </div>
         </div>

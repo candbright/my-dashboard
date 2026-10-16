@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { apiFetch, setToken, clearToken, getToken } from '@/lib/api-client';
+import { isAuthFailure } from '@/lib/http-json';
 
 export interface AuthUser {
   id: string;
@@ -40,14 +41,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       const res = await apiFetch('/api/auth/me');
+
+      /*
+       * `apiFetch` only rejects on a transport failure. A 401/403 arrives here as a *resolved*
+       * response, and `res.json()` on that error body yields no `user` — which used to be treated as
+       * "not logged in" and cleared the token. So a transient network blip and a genuine expiry were
+       * handled identically: both silently logged the user out, mid-session, with no explanation.
+       *
+       * Only an explicit authentication rejection should end the session. Anything else — 5xx, a
+       * gateway hiccup, a dropped connection — leaves the stored token alone, because there is
+       * nothing to suggest it is invalid and discarding it turns a recoverable failure into a
+       * forced re-login. The token is stateless, so keeping it costs nothing: if it really is bad,
+       * the next API call returns 401 and `apiFetch` sends the user to the login page.
+       *
+       * The status list lives in `@/lib/http-json` so "expired" is defined once for the whole app.
+       */
+      if (isAuthFailure(res.status)) {
+        clearToken();
+        setUser(null);
+        return;
+      }
+
+      if (!res.ok) {
+        // Server-side or gateway error: unknown state. Keep whatever session we had.
+        return;
+      }
+
       const data = await res.json();
       setUser(data.user || null);
       if (!data.user) {
         clearToken();
       }
     } catch {
-      setUser(null);
-      clearToken();
+      // Transport failure — the request never got an answer. Explicitly *not* a logout; see above.
     } finally {
       setLoading(false);
     }

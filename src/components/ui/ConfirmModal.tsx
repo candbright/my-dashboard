@@ -1,9 +1,13 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Button } from '@/components/ui';
+// The sibling directly, not the barrel: `ui/index.ts` exports this file, so importing the barrel
+// here would close a runtime cycle (index → ConfirmModal → index) and let module evaluation order
+// decide whether `Button` exists yet.
+import { Button } from './Button';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface ConfirmModalProps {
   open: boolean;
@@ -28,6 +32,9 @@ export function ConfirmModal({
   danger = false,
   loading = false,
 }: ConfirmModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(open, panelRef);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -36,26 +43,53 @@ export function ConfirmModal({
   );
 
   useEffect(() => {
-    if (open) document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    if (!open) return;
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Lock background scrolling, exactly as `Modal` does. Without it the page behind a
+    // confirmation could still scroll, which on a short viewport moves the dialog's own
+    // buttons relative to the pointer mid-click.
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open, handleKeyDown]);
 
   return (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
+          {/* Backdrop — decorative, and kept out of the accessibility tree. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            // `bg-stone-900/40`, not `bg-black/40` — AGENTS.md bans pure black.
+            // `Modal.tsx` already used the warm-stone backdrop; this brings the
+            // confirm dialog in line with it (ticket 08).
+            className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+            aria-hidden="true"
+            inert
             onClick={onClose}
           />
 
           {/* Modal */}
           <motion.div
+            ref={panelRef}
+            /*
+             * `ConfirmModal` had no dialog semantics at all before this: no `role`, so a screen
+             * reader announced its title and buttons as ordinary page content with no indication
+             * that a decision was being requested. `aria-labelledby` points at the visible heading
+             * rather than duplicating the string in `aria-label`.
+             */
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
+            aria-describedby="confirm-modal-message"
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -69,12 +103,12 @@ export function ConfirmModal({
               </div>
 
               {/* Title */}
-              <h3 className="text-lg font-semibold tracking-tight mb-1">
+              <h3 id="confirm-modal-title" className="text-lg font-semibold tracking-tight mb-1">
                 {title}
               </h3>
 
               {/* Message */}
-              <p className="text-sm text-default-500 mb-6 leading-relaxed">
+              <p id="confirm-modal-message" className="text-sm text-default-500 mb-6 leading-relaxed">
                 {message}
               </p>
 
@@ -83,6 +117,9 @@ export function ConfirmModal({
                 <Button
                   variant="light"
                   size="sm"
+                  // Focus lands here on open, not on the confirm button: a destructive
+                  // confirmation must not be one stray Enter away from firing.
+                  data-autofocus
                   onClick={onClose}
                   isDisabled={loading}
                 >

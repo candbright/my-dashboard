@@ -1,25 +1,35 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import {
   Plus, Trash2, GripVertical, Save, ChevronDown, ChevronUp,
-  User, Briefcase, GraduationCap, Code, FolderOpen, X,
+  User, Briefcase, GraduationCap, Code, FolderOpen,
   FileText, Pencil,
 } from 'lucide-react';
-import type { ParsedResume } from '@/lib/resume-parser';
+import type { ParsedResume } from '@/lib/resume-model';
 import type { ResumeRecord } from '@/lib/types';
-import { Button } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
 import { AISectionChat } from '@/components/AISectionChat';
+import { ResumeMetadataPanel } from '@/components/ResumeMetadataPanel';
+import { ResumeSectionBlocksEditor } from '@/components/ResumeSectionBlocksEditor';
 import { parseResumeMarkdown } from '@/lib/resume-parser';
+import {
+  metadataValuesFromRecord,
+  type MetadataKey,
+  type ResumeMetadataPatch,
+  type ResumeMetadataValues,
+} from '@/lib/resume-metadata';
 import {
   EditableFrontmatter,
   EditableSection,
-  EditableSectionItem,
   parsedToEditable,
   editableToMarkdown,
   createEmptySection,
-  createEmptyItem,
+  createEmptyEntryBlock,
+  createEmptyParagraphBlock,
+  sectionWithBlocks,
+  type EditableBlock,
 } from '@/lib/resume-builder';
 
 interface ChatMsg {
@@ -30,10 +40,52 @@ interface ChatMsg {
 }
 
 interface ResumeEditorProps {
-  /** Existing resume record (optional for create flow) */
+  /**
+   * The resume record, used for its **metadata columns** (ticket 15).
+   *
+   * This prop used to be accepted and deliberately ignored. It is now load-bearing: the
+   * metadata form reads the columns off it, and `slug` comes from it too. `parsed` cannot
+   * supply either — after ticket 17 the server strips frontmatter from the document, so
+   * `parsed.frontmatter` is empty and the columns are the only source.
+   */
   resume?: ResumeRecord;
   parsed: ParsedResume;
+  /**
+   * Persists the document.
+   *
+   * Contract: **report your own failures, do not throw.** The editor has no way to
+   * describe a failure usefully — it does not know whether the save was refused by the
+   * version lock, rejected for permissions, or lost to the network — so the caller shows
+   * the message. A rejection that escapes the editor's click handler becomes an
+   * unhandled promise rejection and the user sees nothing.
+   */
   onSave: (markdown: string) => Promise<void>;
+  /**
+   * Persist a metadata patch (ticket 15).
+   *
+   * Contract differs from `onSave` in one deliberate way: **this one may reject, and the
+   * panel catches it.** The metadata endpoint returns field-specific Chinese messages (a
+   * malformed email, a rejected URL) that the panel needs in order to highlight the right
+   * input, and a `void` return would force the caller to swallow them. Recovery is still the
+   * caller's job: it owns the conflict notice and the error banner.
+   *
+   * Optional on a draft with no resume id (the create flow). Combined with
+   * `onMetadataChange`, the panel still edits; it just does not POST until the
+   * parent persists the whole draft.
+   */
+  onSaveMetadata?: (patch: ResumeMetadataPatch, signal: AbortSignal) => Promise<void>;
+  /** Current metadata form values, owned by the caller. */
+  metadataValues?: ResumeMetadataValues;
+  /** Called on every metadata field edit. */
+  onMetadataChange?: (key: MetadataKey, value: string) => void;
+  /** Server-reported, field-keyed errors to mark the offending inputs. */
+  metadataErrors?: Partial<Record<MetadataKey, string>>;
+  /** A general metadata failure message, shown above the form. */
+  metadataErrorMessage?: string | null;
+  /** A metadata success message, shown above the form. */
+  metadataSuccessMessage?: string | null;
+  /** True while the caller is saving metadata, so the fields lock consistently. */
+  metadataSaving?: boolean;
   onCancel: () => void;
   /** Custom title for the editor header */
   headerTitle?: string;
@@ -51,20 +103,102 @@ interface ResumeEditorProps {
   enableAI?: boolean;
   /** Callback when content changes (for external state sync) */
   onContentChange?: (markdown: string) => void;
+  /**
+   * Change this to re-initialise the form from `parsed`.
+   *
+   * ## Why this prop exists
+   *
+   * `useState(() => parsedToEditable(parsed))` captures the value from the **first** render and
+   * ignores every later `parsed`. That is fine while this component is the only writer,
+   * which is the case today — the parent renders it once and never replaces `parsed`. But
+   * it means the editor cannot recover from an external change: if `parsed` is ever
+   * replaced (a reload, a discard-my-changes action, a fresh fetch after the record
+   * finally loads), the form keeps showing the old text and the user would go on editing
+   * a document that no longer exists. The failure is silent, which is the bad kind.
+   *
+   * Synchronising on every `parsed` change is **not** an option: the parent derives
+   * `parsed` from what this editor reports through `onContentChange`, so re-initialising
+   * whenever it changed would fight the user's typing and reset the form on every
+   * keystroke. An explicit token makes the reset an intent rather than a side effect.
+   *
+   * Leave it undefined if you never replace `parsed`.
+   */
+  resetToken?: number;
+  /**
+   * Ask the caller to persist **now**, instead of waiting out its debounce.
+   *
+   * This is the ticket's "切换章节或失焦时立即保存": both are moments the user has
+   * finished with a piece of text, so waiting another 1.5 seconds risks the edit to a
+   * navigation. The editor does not save anything itself — it only reports that this is a
+   * good moment to, which keeps the save policy in one place.
+   *
+   * Implementations must be safe to call spuriously: collapsing a section that was never
+   * edited, or blurring a field whose text already matches the server, both happen
+   * constantly. The autosave hook ignores those; a caller that saved unconditionally
+   * would issue a request per click.
+   */
+  onFlush?: () => void;
+}
+
+/**
+ * While a card is being dragged, keep the list in view.
+ *
+ * `Reorder` itself only reorders inside its box; it does not scroll the page when the pointer
+ * hits the viewport (or a scrollable ancestor). Without this, a card dragged to the top or
+ * bottom of the screen is stuck — the rest of the list never comes into reach.
+ */
+function scrollWhileDragging(clientY: number, from: HTMLElement | null) {
+  const edge = 80;
+  const maxSpeed = 22;
+
+  const nudge = (top: number, height: number, scroll: (delta: number) => void) => {
+    if (height <= 0) return;
+    if (clientY < top + edge) {
+      scroll(-maxSpeed * Math.min(1, (top + edge - clientY) / edge));
+    } else if (clientY > top + height - edge) {
+      scroll(maxSpeed * Math.min(1, (clientY - (top + height - edge)) / edge));
+    }
+  };
+
+  nudge(0, window.innerHeight, (delta) => window.scrollBy(0, delta));
+
+  let node: HTMLElement | null = from;
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY;
+    const scrollable =
+      (overflowY === 'auto' || overflowY === 'scroll') &&
+      node.scrollHeight > node.clientHeight + 1;
+    if (scrollable) {
+      const rect = node.getBoundingClientRect();
+      const target = node;
+      nudge(rect.top, rect.height, (delta) => {
+        target.scrollTop += delta;
+      });
+    }
+    node = node.parentElement;
+  }
 }
 
 const SECTION_PRESETS = [
-  { title: '关于我', icon: User, type: 'content' },
-  { title: '工作经历', icon: Briefcase, type: 'items' },
-  { title: '教育背景', icon: GraduationCap, type: 'items' },
-  { title: '技能', icon: Code, type: 'content' },
-  { title: '项目经历', icon: FolderOpen, type: 'items' },
-];
+  { title: '关于我', icon: User },
+  { title: '工作经历', icon: Briefcase, withEntry: true },
+  { title: '教育背景', icon: GraduationCap, withEntry: true },
+  { title: '技能', icon: Code },
+  { title: '项目经历', icon: FolderOpen, withEntry: true },
+] as const;
 
 export function ResumeEditor({
+  // Now used for the metadata columns and the slug — see the prop's docblock.
   resume,
   parsed,
   onSave,
+  onSaveMetadata,
+  metadataValues,
+  onMetadataChange,
+  metadataErrors,
+  metadataErrorMessage,
+  metadataSuccessMessage,
+  metadataSaving = false,
   onCancel,
   headerTitle = '编辑',
   headerSubtitle = '编辑各模块内容，添加或删除模块',
@@ -74,16 +208,68 @@ export function ResumeEditor({
   hideBottomBar = false,
   enableAI = false,
   onContentChange,
+  resetToken,
+  onFlush,
 }: ResumeEditorProps) {
-  const { frontmatter: initFm, sections: initSections } = parsedToEditable(parsed);
-  const [frontmatter, setFrontmatter] = useState<EditableFrontmatter>(initFm);
-  const [sections, setSections] = useState<EditableSection[]>(initSections);
+  // Parsed once, on the first render only. `parsedToEditable` walks the whole document, and
+  // this used to run on every render while the result was discarded unless it was the first
+  // one — so every keystroke re-parsed the entire resume for nothing (A9). The lazy
+  // initialiser is what makes "once" true; the `resetToken` block below is the only other
+  // reader, and it parses for itself.
+  const [initial] = useState(() => parsedToEditable(parsed));
+  const [frontmatter, setFrontmatter] = useState<EditableFrontmatter>(initial.frontmatter);
+  const [sections, setSections] = useState<EditableSection[]>(initial.sections);
   const [saving, setSaving] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(initSections.map((s) => s.id))
+    new Set(initial.sections.map((s) => s.id))
   );
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [fmExpanded, setFmExpanded] = useState(true);
+  /**
+   * True for the duration of a pointer drag. Every section card collapses while this is on, so
+   * the list is a stack of headers and the pointer can actually reach the rest of it. The
+   * expansion set itself is left alone: dropping restores whatever was open.
+   */
+  const [isReordering, setIsReordering] = useState(false);
+  /**
+   * The last section move, announced through a live region.
+   *
+   * Reordering is a purely visual change — the text stays identical and only its position
+   * moves — so without this a screen reader user gets no feedback at all and cannot tell
+   * whether the key did anything. Kept in the editor rather than the card because the card
+   * unmounts and remounts as the list reorders, which would drop the announcement.
+   */
+  const [moveAnnouncement, setMoveAnnouncement] = useState('');
+
+  /**
+   * The metadata form's values, falling back to the record when the caller does not control
+   * them.
+   *
+   * The fallback is what makes this component usable in both shapes: `ResumePageClient`
+   * lifts the state so it can send the patch, while the create flow owns a draft in
+   * `metadataValues` (there is no record yet). Reading the caller's values first, then
+   * the columns, is what stops the form from rendering empty over good data.
+   */
+  const effectiveMetadataValues = metadataValues ?? metadataValuesFromRecord(resume ?? {});
+
+  // Re-initialise when the caller asks for it.
+  //
+  // State, not a ref, and it is written during render: this is the "adjust state when a
+  // prop changes" pattern, which React runs before committing, so the user never sees a
+  // frame of the stale form. A `useEffect` would paint the old text first and then swap
+  // it, which reads as a flicker.
+  //
+  // Comparing the token rather than `parsed` is the whole point — see the prop's docblock.
+  const [lastResetToken, setLastResetToken] = useState(resetToken);
+  if (resetToken !== lastResetToken) {
+    const reset = parsedToEditable(parsed);
+    setLastResetToken(resetToken);
+    setFrontmatter(reset.frontmatter);
+    setSections(reset.sections);
+    // Section ids are regenerated, so the expansion set has to be rebuilt too, or every
+    // section collapses (or keeps an id that no longer exists).
+    setExpandedSections(new Set(reset.sections.map((s) => s.id)));
+  }
 
   // AI chat history map: shared across all AI dialogs in this editor, keyed by contextKey
   const chatHistoryMap = useRef<Map<string, ChatMsg[]>>(new Map());
@@ -94,23 +280,36 @@ export function ResumeEditor({
 
   useEffect(() => {
     if (onContentChangeRef.current) {
-      const markdown = editableToMarkdown(frontmatter, sections);
+      // No frontmatter (ticket 15). The server stores the document without it and the
+      // database columns are the metadata authority (ADR-0003), so emitting a block here
+      // would send a stale second copy of the metadata on every autosave. The metadata form
+      // writes those columns through their own endpoint.
+      const markdown = editableToMarkdown(frontmatter, sections, { includeFrontmatter: false });
       onContentChangeRef.current(markdown);
     }
   }, [frontmatter, sections]);
 
+  /**
+   * Persist before a deliberate change of context.
+   *
+   * Called from the two moments the ticket names — a section being switched, and a field
+   * losing focus — plus adding or removing a section, which is equally a "done with this"
+   * signal. Guarded so an editor used without autosave stays inert.
+   */
+  const flush = () => {
+    onFlush?.();
+  };
+
   const toggleSection = (id: string) => {
+    // Collapsing a section is the user moving on, so save before the view changes rather
+    // than waiting for the debounce to notice.
+    flush();
     setExpandedSections((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
-
-  // Frontmatter handlers
-  const updateFm = (key: keyof EditableFrontmatter, value: string) => {
-    setFrontmatter((prev) => ({ ...prev, [key]: value }));
   };
 
   // Section handlers
@@ -120,129 +319,104 @@ export function ResumeEditor({
     );
   };
 
-  const updateSectionContent = (sectionId: string, content: string) => {
+  const updateSectionBlocks = (sectionId: string, blocks: EditableBlock[]) => {
     setSections((prev) =>
-      prev.map((s) => (s.id === sectionId ? { ...s, content } : s))
+      prev.map((s) => (s.id === sectionId ? sectionWithBlocks(s, blocks) : s))
     );
   };
 
+  /**
+   * Moves a section by one position, or to either end with `to: 'first' | 'last'`.
+   *
+   * This exists because dragging was the *only* way to reorder sections: the grip carried just
+   * `onPointerDown`, and `framer-motion`'s `Reorder.Item` has no keyboard support of its own
+   * (verified by reading its source — it wires `drag`, `onDrag`, `onDragEnd`, `onLayoutMeasure`
+   * and nothing else). That left keyboard-only users unable to reorder at all, which is WCAG 2.2
+   * **2.1.1 Keyboard** (A) and **2.5.7 Dragging Movements** (AA).
+   *
+   * Deliberately defined on the array rather than derived from `Reorder`'s internal state, so the
+   * keyboard path and the drag path are two ways of writing the same index arithmetic and cannot
+   * disagree about what "the sections in order" means.
+   *
+   * Returns the section's new 1-based position, or `null` when the move is a no-op, so the caller
+   * can announce the result without guessing.
+   */
+  const moveSection = (
+    sectionId: string,
+    to: 'up' | 'down' | 'first' | 'last'
+  ): number | null => {
+    const from = sections.findIndex((s) => s.id === sectionId);
+    if (from === -1) return null;
+
+    const target =
+      to === 'up'
+        ? from - 1
+        : to === 'down'
+          ? from + 1
+          : to === 'first'
+            ? 0
+            : sections.length - 1;
+
+    // Clamp rather than refuse: pressing Home on the first section should be harmless, not an
+    // error the user has to understand.
+    if (target < 0 || target >= sections.length || target === from) return null;
+
+    // Same reason `removeSection` flushes — this is a structural edit, so the user is done with
+    // the text as it stands and a navigation straight afterwards must not lose it.
+    flush();
+    setSections((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(target, 0, moved);
+      return next;
+    });
+    return target + 1;
+  };
+
   const removeSection = (sectionId: string) => {
+    // Structural edits change the document, so flush for the same reason a section switch
+    // does: the user is finished with it, and a delete followed by a navigation would
+    // otherwise lose both the deletion and whatever was typed just before.
+    flush();
     setSections((prev) => prev.filter((s) => s.id !== sectionId));
   };
 
-  const addSection = (preset?: typeof SECTION_PRESETS[0]) => {
+  const addSection = (preset?: (typeof SECTION_PRESETS)[number]) => {
     const newSection = createEmptySection();
     if (preset) {
       newSection.title = preset.title;
-      if (preset.type === 'items') {
-        newSection.items = [createEmptyItem()];
+      if ('withEntry' in preset && preset.withEntry) {
+        return finishAddSection(sectionWithBlocks(newSection, [createEmptyEntryBlock()]));
       }
     }
+    finishAddSection(newSection);
+  };
+
+  const finishAddSection = (newSection: EditableSection) => {
+    // Adding a section is a context switch too — the user has moved on from what they were
+    // editing.
+    flush();
     setSections((prev) => [...prev, newSection]);
     setExpandedSections((prev) => new Set([...prev, newSection.id]));
     setShowAddMenu(false);
   };
 
-  // Item handlers
-  const addItem = (sectionId: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId ? { ...s, items: [...s.items, createEmptyItem()] } : s
-      )
-    );
-  };
-
-  const removeItem = (sectionId: string, itemId: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? { ...s, items: s.items.filter((item) => item.id !== itemId) }
-          : s
-      )
-    );
-  };
-
-  const updateItem = (
-    sectionId: string,
-    itemId: string,
-    field: keyof Omit<EditableSectionItem, 'id' | 'details'>,
-    value: string
-  ) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              items: s.items.map((item) =>
-                item.id === itemId ? { ...item, [field]: value } : item
-              ),
-            }
-          : s
-      )
-    );
-  };
-
-  // Details handlers
-  const addDetail = (sectionId: string, itemId: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              items: s.items.map((item) =>
-                item.id === itemId
-                  ? { ...item, details: [...item.details, ''] }
-                  : item
-              ),
-            }
-          : s
-      )
-    );
-  };
-
-  const removeDetail = (sectionId: string, itemId: string, detailIndex: number) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              items: s.items.map((item) =>
-                item.id === itemId
-                  ? { ...item, details: item.details.filter((_, i) => i !== detailIndex) }
-                  : item
-              ),
-            }
-          : s
-      )
-    );
-  };
-
-  const updateDetail = (sectionId: string, itemId: string, detailIndex: number, value: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              items: s.items.map((item) =>
-                item.id === itemId
-                  ? {
-                      ...item,
-                      details: item.details.map((d, i) => (i === detailIndex ? value : d)),
-                    }
-                  : item
-              ),
-            }
-          : s
-      )
-    );
-  };
-
   // Save handler
+  //
+  // The error is swallowed rather than re-thrown, and `onSave` is documented to report
+  // its own failures. Re-throwing here would escape a click handler as an unhandled
+  // promise rejection, which shows the user nothing at all: the button stops spinning
+  // and no message appears, so a refused save would look like a save that did nothing.
+  // The caller owns the message because only the caller knows whether the failure was a
+  // version conflict (which it already renders as a notice) or something else.
   const handleSave = async () => {
     setSaving(true);
     try {
-      const markdown = editableToMarkdown(frontmatter, sections);
+      // Body only — see the note on the `onContentChange` effect above.
+      const markdown = editableToMarkdown(frontmatter, sections, { includeFrontmatter: false });
       await onSave(markdown);
+    } catch {
+      // Reported by the caller.
     } finally {
       setSaving(false);
     }
@@ -250,59 +424,28 @@ export function ResumeEditor({
 
   // ── AI helpers ───────────────────────────────────────────────
 
-  /** Build text context for frontmatter to send to AI */
-  const buildFrontmatterContext = (fm: EditableFrontmatter): string => {
-    const lines: string[] = ['---'];
-    if (fm.name) lines.push(`name: ${fm.name}`);
-    if (fm.title) lines.push(`title: ${fm.title}`);
-    if (fm.email) lines.push(`email: ${fm.email}`);
-    if (fm.phone) lines.push(`phone: ${fm.phone}`);
-    if (fm.location) lines.push(`location: ${fm.location}`);
-    if (fm.website) lines.push(`website: ${fm.website}`);
-    if (fm.github) lines.push(`github: ${fm.github}`);
-    if (fm.linkedin) lines.push(`linkedin: ${fm.linkedin}`);
-    if (fm.avatar) lines.push(`avatar: ${fm.avatar}`);
-    lines.push('---');
-    return lines.join('\n');
-  };
-
+  // The metadata section's AI chat (`buildFrontmatterContext`, `applyAIToFrontmatter`) was
+  // removed with ticket 15. Both worked on `parsed.frontmatter`, which ticket 17 made
+  // permanently empty, so the feature had already stopped doing anything. The section-level
+  // helpers below are unaffected and still in use.
   /** Build text context for a section to send to AI */
   const buildSectionContext = (section: EditableSection): string => {
-    const lines: string[] = [`## ${section.title}`];
-    if (section.content.trim()) lines.push(section.content.trim());
-    for (const item of section.items) {
-      const itemTitle = item.subtitle ? `### ${item.title} | ${item.subtitle}` : `### ${item.title}`;
-      lines.push(itemTitle);
-      if (item.date) lines.push(`*${item.date}*`);
-      for (const detail of item.details) {
-        if (detail.trim()) lines.push(`- ${detail.trim()}`);
-      }
-      lines.push('');
-    }
-    return lines.join('\n');
-  };
-
-  /** Apply AI response to frontmatter fields */
-  const applyAIToFrontmatter = (content: string) => {
-    // Try to parse frontmatter from AI response
-    const fmMatch = content.match(/---\n([\s\S]*?)\n---/);
-    if (fmMatch) {
-      const fmText = fmMatch[1];
-      const newFm = { ...frontmatter };
-      const fieldMap: Record<string, keyof EditableFrontmatter> = {
-        name: 'name', title: 'title', email: 'email', phone: 'phone',
-        location: 'location', website: 'website', github: 'github',
-        linkedin: 'linkedin', avatar: 'avatar',
-      };
-      for (const line of fmText.split('\n')) {
-        const match = line.match(/^(\w+):\s*(.*)$/);
-        if (match) {
-          const key = fieldMap[match[1]];
-          if (key) newFm[key] = match[2].trim();
-        }
-      }
-      setFrontmatter(newFm);
-    }
+    const body = editableToMarkdown(
+      {
+        name: '',
+        title: '',
+        email: '',
+        phone: '',
+        location: '',
+        website: '',
+        github: '',
+        linkedin: '',
+        avatar: '',
+      },
+      [section],
+      { includeFrontmatter: false },
+    );
+    return body.trim();
   };
 
   /** Apply AI response to a section */
@@ -320,26 +463,32 @@ export function ResumeEditor({
         });
         if (editableSections.length > 0) {
           const aiEditable = editableSections[0];
-          setSections(prev => prev.map(s =>
+          setSections((prev) => prev.map((s) =>
             s.id === sectionId
-              ? { ...s, title: aiEditable.title || s.title, content: aiEditable.content, items: aiEditable.items }
+              ? {
+                  ...s,
+                  title: aiEditable.title || s.title,
+                  content: aiEditable.content,
+                  items: aiEditable.items,
+                  blocks: aiEditable.blocks ?? [],
+                }
               : s
           ));
+          return;
         }
-      } else {
-        // Fallback: treat as raw content for that section
-        setSections(prev => prev.map(s =>
-          s.id === sectionId
-            ? { ...s, content: content.replace(/^##\s+.*\n?/, '').trim() }
-            : s
-        ));
       }
+      const body = content.replace(/^##\s+.*\n?/, '').trim();
+      const paragraph = createEmptyParagraphBlock();
+      paragraph.text = body;
+      setSections((prev) => prev.map((s) =>
+        s.id === sectionId ? sectionWithBlocks({ ...s, content: body }, [paragraph]) : s
+      ));
     } catch {
-      // Fallback: just set as raw content
-      setSections(prev => prev.map(s =>
-        s.id === sectionId
-          ? { ...s, content: content.replace(/^##\s+.*\n?/, '').trim() }
-          : s
+      const body = content.replace(/^##\s+.*\n?/, '').trim();
+      const paragraph = createEmptyParagraphBlock();
+      paragraph.text = body;
+      setSections((prev) => prev.map((s) =>
+        s.id === sectionId ? sectionWithBlocks({ ...s, content: body }, [paragraph]) : s
       ));
     }
   };
@@ -349,7 +498,7 @@ export function ResumeEditor({
       {/* Header */}
       {!hideHeader && (
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight font-serif">
             {headerTitle} <span className="gradient-text">简历</span>
           </h1>
           <p className="text-default-500 mt-1">
@@ -358,96 +507,145 @@ export function ResumeEditor({
         </div>
       )}
 
-      {/* Frontmatter Section */}
+      {/* Metadata section (ticket 15) */}
+      {/*
+        The body of this card used to be nine `FormField`s bound to `parsed.frontmatter`.
+        That stopped being able to work at ticket 17: the server strips frontmatter from the
+        stored document, so `parsed.frontmatter` is always empty while the columns hold the
+        real values — the fields rendered blank over good data, and saving wrote the blanks
+        back. `ResumeMetadataPanel` edits the columns through their own endpoint instead.
+
+        The AI chat button that sat in this card's header is **gone**, not moved. It built its
+        context from `parsed.frontmatter` and applied the reply to the frontmatter state, so
+        after ticket 17 it was sending an empty context and writing into state that nothing
+        read — a control that appeared to work and did nothing, which is worse than an absent
+        one. Rebuilding it against the metadata columns is a real feature and belongs in its
+        own ticket; the section-level AI chat below is unaffected.
+      */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-content1 border border-default-200 rounded-[2rem] mb-6"
+        className="mb-6"
       >
-        {/* Frontmatter Header (always visible) */}
-        <div className="flex items-center gap-3 p-5 border-b border-default-200">
-          <User className="w-5 h-5 text-primary" />
-          <span className="text-lg font-semibold flex-1">基本信息</span>
-          {enableAI && (
-            <AISectionChat
-              contextKey="frontmatter"
-              sectionTitle="基本信息"
-              sectionContent={buildFrontmatterContext(frontmatter)}
-              onApplyContent={(content) => applyAIToFrontmatter(content)}
-              chatHistoryMap={chatHistoryMap}
-            />
-          )}
-          <button
-            onClick={() => setFmExpanded(!fmExpanded)}
-            className="p-1.5 rounded-lg hover:bg-default-100 transition-colors"
-          >
-            {fmExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-        </div>
-        {/* Frontmatter Content (collapsible) */}
-        <AnimatePresence>
-          {fmExpanded && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField label="姓名" value={frontmatter.name} onChange={(v) => updateFm('name', v)} placeholder="张三" />
-                  <FormField label="职位" value={frontmatter.title} onChange={(v) => updateFm('title', v)} placeholder="全栈开发工程师" />
-                  <FormField label="邮箱" value={frontmatter.email} onChange={(v) => updateFm('email', v)} placeholder="email@example.com" type="email" />
-                  <FormField label="电话" value={frontmatter.phone} onChange={(v) => updateFm('phone', v)} placeholder="+86 138-0000-0000" />
-                  <FormField label="地点" value={frontmatter.location} onChange={(v) => updateFm('location', v)} placeholder="北京市" />
-                  <FormField label="网站" value={frontmatter.website} onChange={(v) => updateFm('website', v)} placeholder="https://example.com" />
-                  <FormField label="GitHub" value={frontmatter.github} onChange={(v) => updateFm('github', v)} placeholder="https://github.com/username" />
-                  <FormField label="LinkedIn" value={frontmatter.linkedin} onChange={(v) => updateFm('linkedin', v)} placeholder="https://linkedin.com/in/username" />
-                  <FormField label="头像" value={frontmatter.avatar} onChange={(v) => updateFm('avatar', v)} placeholder="https://example.com/avatar.jpg" className="md:col-span-2" />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {onMetadataChange ? (
+          <div className="relative rounded-[2rem] border border-default-200 bg-content1">
+            <div className="flex items-center gap-3 p-5">
+              <User className="w-5 h-5 text-primary" />
+              <span className="flex-1 text-lg font-semibold">基本信息</span>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                radius="full"
+                onClick={() => setFmExpanded(!fmExpanded)}
+                aria-label={fmExpanded ? '收起基本信息' : '展开基本信息'}
+                aria-expanded={fmExpanded}
+              >
+                {fmExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </Button>
+            </div>
+            <AnimatePresence initial={false}>
+              {fmExpanded && (
+                <motion.div
+                  key="metadata-panel"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="overflow-hidden"
+                >
+                  <ResumeMetadataPanel
+                    hideHeader
+                    values={effectiveMetadataValues}
+                    originalValues={metadataValuesFromRecord(resume ?? {})}
+                    onChange={onMetadataChange}
+                    onSave={onSaveMetadata}
+                    slug={resume?.slug}
+                    isSaving={metadataSaving}
+                    serverErrors={metadataErrors}
+                    errorMessage={metadataErrorMessage}
+                    successMessage={metadataSuccessMessage}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div className="bg-content1 border border-default-200 rounded-[2rem] p-6">
+            <div className="flex items-center gap-3">
+              <User className="w-5 h-5 text-primary" />
+              <span className="text-lg font-semibold">基本信息</span>
+            </div>
+            <p className="mt-2 text-sm text-default-500">
+              基本信息需要先保存简历后才能编辑。
+            </p>
+          </div>
+        )}
       </motion.div>
 
       {/* Sections (drag-reorderable) */}
       <Reorder.Group axis="y" values={sections} onReorder={setSections} className="space-y-4">
-          {sections.map((section) => (
+          {sections.map((section, index) => (
             <DraggableSectionCard
               key={section.id}
               section={section}
-              isExpanded={expandedSections.has(section.id)}
+              isExpanded={expandedSections.has(section.id) && !isReordering}
+              collapseInstantly={isReordering}
+              onDragBegin={() => {
+                if (isReordering) return;
+                flush();
+                setIsReordering(true);
+              }}
+              onDragFinish={() => setIsReordering(false)}
               onToggle={() => toggleSection(section.id)}
               onUpdateTitle={(title) => updateSectionTitle(section.id, title)}
-              onUpdateContent={(content) => updateSectionContent(section.id, content)}
+              onUpdateBlocks={(blocks) => updateSectionBlocks(section.id, blocks)}
               onRemove={() => removeSection(section.id)}
-              onAddItem={() => addItem(section.id)}
               enableAI={enableAI}
               sectionContext={buildSectionContext(section)}
               onApplyAI={(content) => applyAIToSection(section.id, content)}
               chatHistoryMap={chatHistoryMap}
-              items={section.items}
-              sectionId={section.id}
-              onUpdateItem={updateItem}
-              onRemoveItem={removeItem}
-              onAddDetail={addDetail}
-              onRemoveDetail={removeDetail}
-              onUpdateDetail={updateDetail}
+              onFlush={flush}
+              onMove={(to) => {
+                const moved = moveSection(section.id, to);
+                if (moved !== null) {
+                  // Announced rather than assumed: the list reorders visually, which a screen
+                  // reader user cannot see. Reuses the same live region as the save indicator.
+                  setMoveAnnouncement(
+                    `「${section.title || '未命名模块'}」已移到第 ${moved} 位，共 ${sections.length} 项`
+                  );
+                }
+              }}
+              canMoveUp={index > 0}
+              canMoveDown={index < sections.length - 1}
+              position={index + 1}
+              total={sections.length}
             />
           ))}
       </Reorder.Group>
 
+      {/*
+        Announces the result of a keyboard move. `polite` rather than `assertive`: the user
+        initiated the move deliberately and does not need the current utterance interrupted,
+        but they do need to know where the section landed. Empty by default so it is not read
+        on mount.
+      */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {moveAnnouncement}
+      </div>
+
       {/* Add Section */}
       <div className="mt-6 relative">
-        <button
+        <Button
+          variant="bordered"
+          radius="full"
+          fullWidth
           onClick={() => setShowAddMenu(!showAddMenu)}
-          className="w-full py-4 rounded-[2rem] border border-dashed border-default-200 hover:border-primary text-sm font-medium text-default-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 border-dashed text-sm font-medium text-default-500 hover:text-primary"
         >
           <Plus className="w-5 h-5" />
           添加模块
-        </button>
+        </Button>
 
         <AnimatePresence>
           {showAddMenu && (
@@ -463,24 +661,28 @@ export function ResumeEditor({
               {SECTION_PRESETS.map((preset) => {
                 const Icon = preset.icon;
                 return (
-                  <button
+                  <Button
                     key={preset.title}
+                    variant="light"
+                    fullWidth
                     onClick={() => addSection(preset)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[2rem] hover:bg-default-100 transition-colors text-left"
+                    className="w-full justify-start gap-3 px-3 py-2.5 text-left font-normal"
                   >
                     <Icon className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium">{preset.title}</span>
-                  </button>
+                  </Button>
                 );
               })}
               <hr className="my-2 border-default-200" />
-              <button
+              <Button
+                variant="light"
+                fullWidth
                 onClick={() => addSection()}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-[2rem] hover:bg-default-100 transition-colors text-left"
+                className="w-full justify-start gap-3 px-3 py-2.5 text-left font-normal"
               >
                 <FileText className="w-4 h-4 text-default-400" />
                 <span className="text-sm font-medium">空白模块</span>
-              </button>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -519,43 +721,65 @@ export function ResumeEditor({
 interface DraggableSectionCardProps {
   section: EditableSection;
   isExpanded: boolean;
+  /**
+   * Skip the collapse animation. Used while a drag is in flight, so the cards snap to headers
+   * instead of fighting the pointer with a 200ms height tween.
+   */
+  collapseInstantly?: boolean;
+  onDragBegin: () => void;
+  onDragFinish: () => void;
   onToggle: () => void;
   onUpdateTitle: (title: string) => void;
-  onUpdateContent: (content: string) => void;
+  onUpdateBlocks: (blocks: EditableBlock[]) => void;
   onRemove: () => void;
-  onAddItem: () => void;
   enableAI: boolean;
   sectionContext: string;
   onApplyAI: (content: string) => void;
   chatHistoryMap: React.MutableRefObject<Map<string, ChatMsg[]>>;
-  items: EditableSectionItem[];
-  sectionId: string;
-  onUpdateItem: (sectionId: string, itemId: string, field: keyof Omit<EditableSectionItem, 'id' | 'details'>, value: string) => void;
-  onRemoveItem: (sectionId: string, itemId: string) => void;
-  onAddDetail: (sectionId: string, itemId: string) => void;
-  onRemoveDetail: (sectionId: string, itemId: string, detailIndex: number) => void;
-  onUpdateDetail: (sectionId: string, itemId: string, detailIndex: number, value: string) => void;
+  /**
+   * Ask the caller to persist now — see `ResumeEditorProps.onFlush`.
+   *
+   * Threaded down rather than reached for through a context, because the only components
+   * that need it are the two that own text fields, and a context would make "this
+   * component can trigger a save" invisible at the call site.
+   */
+  onFlush?: () => void;
+  /**
+   * Keyboard reordering. The drag grip cannot be the only way to change section order, so the
+   * card also exposes explicit move controls — see `moveSection` for the WCAG reasoning.
+   *
+   * `canMoveUp` / `canMoveDown` are passed in rather than derived here, because only the parent
+   * knows the section's position; disabled buttons at the ends are how a user learns where the
+   * boundaries are.
+   */
+  onMove: (to: 'up' | 'down' | 'first' | 'last') => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  /** 1-based position, for the controls' accessible names. */
+  position: number;
+  total: number;
 }
 
 function DraggableSectionCard({
   section,
   isExpanded,
+  collapseInstantly = false,
+  onDragBegin,
+  onDragFinish,
   onToggle,
   onUpdateTitle,
-  onUpdateContent,
+  onUpdateBlocks,
   onRemove,
-  onAddItem,
   enableAI,
   sectionContext,
   onApplyAI,
   chatHistoryMap,
-  items,
-  sectionId,
-  onUpdateItem,
-  onRemoveItem,
-  onAddDetail,
-  onRemoveDetail,
-  onUpdateDetail,
+  onFlush,
+  onMove,
+  canMoveUp,
+  canMoveDown,
+  position,
+  total,
 }: DraggableSectionCardProps) {
   const dragControls = useDragControls();
 
@@ -564,24 +788,94 @@ function DraggableSectionCard({
       value={section}
       dragListener={false}
       dragControls={dragControls}
+      onDragStart={onDragBegin}
+      onDragEnd={onDragFinish}
+      onDrag={(_, info) => {
+        const node =
+          typeof document !== 'undefined'
+            ? document.elementFromPoint(info.point.x, info.point.y)
+            : null;
+        scrollWhileDragging(info.point.y, node instanceof HTMLElement ? node : null);
+      }}
       className="bg-content1 border border-default-200 rounded-[2rem] list-none"
     >
       {/* Section Header */}
-      <div className="flex items-center gap-3 p-5 border-b border-default-200">
+      <div className="flex items-center gap-3 p-5">
+        {/*
+          The grip is a pointer affordance and stays one, but it is also focusable and answers
+          arrow keys: a control that only responds to a drag is the exact failure WCAG 2.5.7
+          exists for, and leaving it unreachable would make the visible control a lie for
+          keyboard users. Arrow keys are the platform convention for reordering a vertical list
+          (Home/End jump to the ends), so this needs no explanation to be discovered — and the
+          named buttons beside it are the discoverable, screen-reader-friendly path to the same
+          operation.
+        */}
         <div
-          className="cursor-grab active:cursor-grabbing touch-none"
+          role="button"
+          tabIndex={0}
+          aria-label={`拖动调整「${section.title || '未命名模块'}」的顺序，或用方向键移动`}
+          className="cursor-grab active:cursor-grabbing touch-none rounded-full p-1 text-default-400 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
           onPointerDown={(e) => dragControls.start(e)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              onMove('up');
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              onMove('down');
+            } else if (e.key === 'Home') {
+              e.preventDefault();
+              onMove('first');
+            } else if (e.key === 'End') {
+              e.preventDefault();
+              onMove('last');
+            }
+          }}
           style={{ touchAction: 'none' }}
         >
-          <GripVertical className="w-4 h-4 text-default-400" />
+          <GripVertical className="w-4 h-4" />
+        </div>
+
+        {/*
+          The non-drag way to reorder. These are real buttons rather than a hint, because
+          "adjust the order" is a task a keyboard user has to be able to *find*, and a
+          focusable icon that does nothing until you guess an arrow key does not give them
+          that. Disabled at the ends, so the boundary is visible rather than silently
+          ignored.
+        */}
+        <div className="flex flex-col">
+          <Button
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            isDisabled={!canMoveUp}
+            aria-label={`上移「${section.title || '未命名模块'}」（第 ${position} / ${total} 项）`}
+            onClick={() => onMove('up')}
+            className="h-5 min-h-0 w-5 min-w-0 text-default-400 hover:text-primary disabled:opacity-30"
+          >
+            <ChevronUp className="w-3.5 h-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            isDisabled={!canMoveDown}
+            aria-label={`下移「${section.title || '未命名模块'}」（第 ${position} / ${total} 项）`}
+            onClick={() => onMove('down')}
+            className="h-5 min-h-0 w-5 min-w-0 text-default-400 hover:text-primary disabled:opacity-30"
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </Button>
         </div>
         <div className="flex-1 group/title relative">
-          <input
+          <Input
             type="text"
             value={section.title}
             onChange={(e) => onUpdateTitle(e.target.value)}
-            className="text-lg font-semibold bg-transparent w-full outline-none placeholder:text-default-400 border-b-2 border-transparent hover:border-default-200 focus:border-primary transition-colors duration-500 py-0.5 pr-7"
+            variant="plain"
+            inputSize="lg"
             placeholder="模块标题"
+            className="text-lg font-semibold pr-7 py-0.5"
           />
           <Pencil className="w-3.5 h-3.5 absolute right-1 top-1/2 -translate-y-1/2 text-default-400 opacity-0 group-hover/title:opacity-60 transition-opacity pointer-events-none" />
         </div>
@@ -594,22 +888,36 @@ function DraggableSectionCard({
             chatHistoryMap={chatHistoryMap}
           />
         )}
-        <button
+        <Button
+          isIconOnly
+          size="sm"
+          variant="light"
+          radius="full"
+          aria-label={
+            isExpanded
+              ? `收起「${section.title || '未命名模块'}」`
+              : `展开「${section.title || '未命名模块'}」`
+          }
+          aria-expanded={isExpanded}
           onClick={onToggle}
-          className="p-1.5 rounded-lg hover:bg-default-100 transition-colors"
         >
           {isExpanded ? (
             <ChevronUp className="w-4 h-4" />
           ) : (
             <ChevronDown className="w-4 h-4" />
           )}
-        </button>
-        <button
+        </Button>
+        <Button
+          isIconOnly
+          size="sm"
+          variant="light"
+          radius="full"
+          color="danger"
+          aria-label={`删除模块「${section.title || '未命名模块'}」`}
           onClick={onRemove}
-          className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
         >
           <Trash2 className="w-4 h-4" />
-        </button>
+        </Button>
       </div>
 
       {/* Section Content */}
@@ -619,53 +927,15 @@ function DraggableSectionCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: collapseInstantly ? 0 : 0.2 }}
             className="overflow-hidden"
           >
             <div className="p-5 space-y-4">
-              {/* Content textarea */}
-              <div>
-                <label className="text-sm font-medium text-default-500 mb-1.5 block">
-                  段落内容（可选，适合"关于我"等章节）
-                </label>
-                <textarea
-                  value={section.content}
-                  onChange={(e) => onUpdateContent(e.target.value)}
-                  className="w-full px-4 py-3 rounded-[2rem] bg-background border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none resize-y text-sm min-h-[80px] transition-colors"
-                  placeholder="输入段落内容..."
-                  rows={3}
-                />
-              </div>
-
-              {/* Items */}
-              {items.length > 0 && (
-                <div className="space-y-4">
-                  <label className="text-sm font-medium text-default-500">
-                    条目列表
-                  </label>
-                  {items.map((item) => (
-                    <SectionItemEditor
-                      key={item.id}
-                      item={item}
-                      sectionId={sectionId}
-                      onUpdate={onUpdateItem}
-                      onRemove={onRemoveItem}
-                      onAddDetail={onAddDetail}
-                      onRemoveDetail={onRemoveDetail}
-                      onUpdateDetail={onUpdateDetail}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Add item button */}
-              <button
-                onClick={onAddItem}
-                className="w-full py-3 rounded-[2rem] border border-dashed border-default-200 hover:border-primary text-sm font-medium text-default-500 hover:text-primary transition-colors flex items-center justify-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                添加条目
-              </button>
+              <ResumeSectionBlocksEditor
+                blocks={section.blocks ?? []}
+                onChange={onUpdateBlocks}
+                onFlush={onFlush}
+              />
             </div>
           </motion.div>
         )}
@@ -674,118 +944,12 @@ function DraggableSectionCard({
   );
 }
 
-function SectionItemEditor({
-  item,
-  sectionId,
-  onUpdate,
-  onRemove,
-  onAddDetail,
-  onRemoveDetail,
-  onUpdateDetail,
-}: {
-  item: EditableSectionItem;
-  sectionId: string;
-  onUpdate: (sectionId: string, itemId: string, field: keyof Omit<EditableSectionItem, 'id' | 'details'>, value: string) => void;
-  onRemove: (sectionId: string, itemId: string) => void;
-  onAddDetail: (sectionId: string, itemId: string) => void;
-  onRemoveDetail: (sectionId: string, itemId: string, detailIndex: number) => void;
-  onUpdateDetail: (sectionId: string, itemId: string, detailIndex: number, value: string) => void;
-}) {
-  return (
-    <div className="bg-background border border-default-200 rounded-[2rem] p-4 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input
-            type="text"
-            value={item.title}
-            onChange={(e) => onUpdate(sectionId, item.id, 'title', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
-            placeholder="标题（如：高级开发工程师）"
-          />
-          <input
-            type="text"
-            value={item.subtitle}
-            onChange={(e) => onUpdate(sectionId, item.id, 'subtitle', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
-            placeholder="副标题（如：公司名称）"
-          />
-          <input
-            type="text"
-            value={item.date}
-            onChange={(e) => onUpdate(sectionId, item.id, 'date', e.target.value)}
-            className="px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors md:col-span-2"
-            placeholder="时间（如：2022年1月 - 至今）"
-          />
-        </div>
-        <button
-          onClick={() => onRemove(sectionId, item.id)}
-          className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors flex-shrink-0"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
+/**
+ * There is deliberately no metadata `FormField` here any more.
+ *
+ * One existed to wrap `ui/Input` for the nine frontmatter fields (ticket 08). Ticket 15
+ * replaced those fields with `ResumeMetadataPanel`, which owns its own layout, so the helper
+ * had no callers left. Kept as a note rather than silently deleted so the next person does
+ * not reintroduce it.
+ */
 
-      {/* Details */}
-      <div className="space-y-2">
-        <label className="text-xs font-medium text-default-400">详细描述</label>
-        {item.details.map((detail, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <span className="text-default-400 text-xs">•</span>
-            <input
-              type="text"
-              value={detail}
-              onChange={(e) => onUpdateDetail(sectionId, item.id, idx, e.target.value)}
-              className="flex-1 px-3 py-2 rounded-lg bg-content1 border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
-              placeholder="描述内容..."
-            />
-            <button
-              onClick={() => onRemoveDetail(sectionId, item.id, idx)}
-              className="p-1 rounded-lg hover:bg-red-500/10 text-red-400 transition-colors"
-              disabled={item.details.length <= 1}
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={() => onAddDetail(sectionId, item.id)}
-          className="text-xs text-primary hover:underline flex items-center gap-1 pt-1"
-        >
-          <Plus className="w-3 h-3" />
-          添加描述
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function FormField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-  className = '',
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  type?: string;
-  className?: string;
-}) {
-  return (
-    <div className={className}>
-      <label className="text-sm font-medium text-default-500 mb-1.5 block">
-        {label}
-      </label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-4 py-2.5 rounded-[2rem] bg-background border border-default-200 focus:border-primary focus:ring-1 focus:ring-primary/10 outline-none text-sm transition-colors"
-      />
-    </div>
-  );
-}

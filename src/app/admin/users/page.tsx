@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch, grantPermission, revokePermission } from '@/lib/api-client';
+import { readJsonBody } from '@/lib/http-json';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Button, Card, Chip, Spinner, Switch, ConfirmModal, useToast, ToastContainer } from '@/components/ui';
+import { AlertCircle } from 'lucide-react';
 
 interface UserItem {
   id: string;
@@ -49,15 +51,47 @@ export default function UsersPage() {
   const [roleChangeTarget, setRoleChangeTarget] = useState<{ userId: string; newRole: 'admin' | 'user' } | null>(null);
   const { toasts, addToast, removeToast } = useToast();
 
+  /**
+   * Set when the user list request failed, as opposed to returning nothing.
+   *
+   * The `.catch(() => {})` this replaces is worse here than on a personal page: the heading renders
+   * `{users.length} 位用户`, so a failed request displayed **「0 位用户」** above an empty table — an
+   * administrator would read that as "the user table has been wiped", which is alarming and false.
+   * The list is bounded and admin-only, so a failure is worth stating plainly with a retry.
+   */
+  const [loadError, setLoadError] = useState<string | null>(null);
+  /** Bumped by the retry button to re-run the fetch effect. */
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     if (!authLoading && isAdmin) {
+      let cancelled = false;
       apiFetch('/api/admin/users')
-        .then((r) => r.json())
-        .then((data) => setUsers(data.users || []))
-        .catch(() => {})
-        .finally(() => setLoadingUsers(false));
+        .then((r) => readJsonBody<{ users?: UserItem[] }>(r, '加载用户列表失败'))
+        .then((result) => {
+          if (cancelled) return;
+          // Checked before use, so a failure cannot render as an empty table reading 「0 位用户」.
+          if (!result.ok) {
+            // `users` is left alone: a failed refresh must not erase a list already on screen.
+            setLoadError(result.error);
+            return;
+          }
+          setUsers(result.data.users ?? []);
+        })
+        .catch((err: unknown) => {
+          // Only a transport failure reaches here; HTTP errors are values from `readJsonBody`.
+          if (cancelled) return;
+          setLoadError(err instanceof Error ? err.message : '加载用户列表失败，请稍后重试');
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingUsers(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
     }
-  }, [authLoading, isAdmin]);
+  }, [authLoading, isAdmin, reloadKey]);
 
   const handleRoleChange = (userId: string, newRole: 'admin' | 'user') => {
     if (userId === currentUser?.id) return;
@@ -130,6 +164,40 @@ export default function UsersPage() {
 
   if (!isAdmin) return null;
 
+  if (loadError) {
+    /*
+     * Rendered instead of the table, so the misleading 「0 位用户」 count is never shown. The count
+     * itself is the most dangerous part of this page when it is wrong.
+     */
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
+      >
+        <h1 className="text-2xl font-bold tracking-tight font-serif mb-1">用户管理</h1>
+        <div className="mt-6 rounded-[2rem] border border-danger/30 bg-danger/5 px-6 py-10 text-center">
+          <AlertCircle className="mx-auto mb-3 h-7 w-7 text-danger" />
+          <h2 className="mb-1 font-serif text-lg font-semibold text-foreground">
+            用户列表加载失败
+          </h2>
+          <p className="mb-5 text-sm text-default-500">{loadError}</p>
+          <Button
+            variant="bordered"
+            radius="full"
+            onClick={() => {
+              setLoadError(null);
+              setLoadingUsers(true);
+              setReloadKey((n) => n + 1);
+            }}
+          >
+            重新加载
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <>
     <motion.div
@@ -137,7 +205,7 @@ export default function UsersPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
     >
-      <h1 className="text-2xl font-bold tracking-tight mb-1">用户管理</h1>
+      <h1 className="text-2xl font-bold tracking-tight font-serif mb-1">用户管理</h1>
       <p className="text-sm text-default-500 mb-8">{users.length} 位用户</p>
 
       <Card variant="bordered" className="overflow-hidden">

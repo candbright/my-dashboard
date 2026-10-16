@@ -1,9 +1,10 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { useCallback, useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 interface ModalProps {
   open: boolean;
@@ -47,6 +48,12 @@ export function Modal({
   isDismissable = true,
   className,
 }: ModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Moves focus in on open, keeps Tab inside, and restores focus on close. `role="dialog"` alone
+  // does not do any of that — see the hook for the WCAG reasoning.
+  useFocusTrap(open, panelRef);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isDismissable) onClose();
@@ -73,19 +80,30 @@ export function Modal({
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
+          {/*
+            `aria-hidden` + `inert` on the backdrop: the overlay is decorative, and without this a
+            screen reader can still wander into it. The dialog panel below is a sibling, so it stays
+            exposed.
+          */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: 'easeInOut' }}
             className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
+            aria-hidden="true"
+            inert
             onClick={() => isDismissable && onClose()}
           />
 
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label={title}
+            // Focus management lands here only when nothing inside is focusable, so the panel
+            // itself has to be reachable — otherwise focus would have nowhere to go.
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.98, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: 12 }}

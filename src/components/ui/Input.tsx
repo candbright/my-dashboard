@@ -3,7 +3,7 @@
 import { forwardRef, type InputHTMLAttributes, type ReactNode, useState, useId } from 'react';
 import { cn } from '@/lib/cn';
 
-type InputVariant = 'flat' | 'bordered' | 'underlined';
+type InputVariant = 'flat' | 'bordered' | 'underlined' | 'plain';
 type InputSize = 'sm' | 'md' | 'lg';
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
@@ -29,6 +29,7 @@ const variantMap: Record<InputVariant, string> = {
   flat: 'bg-default-100 hover:bg-default-200 border-transparent',
   bordered: 'bg-transparent border border-default-200 hover:border-default-300',
   underlined: 'bg-transparent border-b border-default-200 hover:border-default-300 rounded-none px-0',
+  plain: 'bg-transparent border-transparent hover:bg-transparent rounded-none px-0',
 };
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -54,6 +55,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const autoId = useId();
     const id = propId || autoId;
     const hasError = isInvalid || !!errorMessage;
+    // Derived from `id` so the ids stay unique per instance without a second `useId` call, and so
+    // a consumer that passes its own `id` still gets matching describedby targets.
+    const descriptionId = `${id}-description`;
+    const errorId = `${id}-error`;
 
     return (
       <div className={cn('flex flex-col gap-1.5', fullWidth && 'w-full')}>
@@ -71,7 +76,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             variantMap[variant],
             sizeMap[inputSize],
             hasError && 'border-danger hover:border-danger',
-            'focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10',
+            variant === 'plain'
+              ? 'focus-within:border-transparent focus-within:ring-0'
+              : 'focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/10',
             hasError && 'focus-within:border-danger focus-within:ring-danger/20',
             // A read-only field has to look read-only. The browser's default
             // greying is overridden by the classes above, so without this a
@@ -90,6 +97,18 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={id}
             disabled={disabled}
+            // A field the user cannot tell is wrong is a field they cannot fix. `aria-invalid`
+            // carries that state to assistive tech — colour alone does not — and
+            // `aria-describedby` ties the message to the field, so it is announced as the
+            // field's own description rather than left as orphaned text elsewhere in the form.
+            aria-invalid={hasError || undefined}
+            aria-describedby={
+              hasError && errorMessage
+                ? errorId
+                : description
+                  ? descriptionId
+                  : undefined
+            }
             className={cn(
               'flex-1 bg-transparent outline-none px-3',
               'text-foreground placeholder:text-default-400',
@@ -107,12 +126,17 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {description && !hasError && (
-          <p className={cn('text-xs', disabled ? 'text-default-400/70' : 'text-default-400')}>
+          <p
+            id={descriptionId}
+            className={cn('text-xs', disabled ? 'text-default-400/70' : 'text-default-400')}
+          >
             {description}
           </p>
         )}
         {errorMessage && (
-          <p className="text-xs text-danger">{errorMessage}</p>
+          <p id={errorId} role="alert" className="text-xs text-danger">
+            {errorMessage}
+          </p>
         )}
       </div>
     );

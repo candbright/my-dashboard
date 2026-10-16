@@ -43,6 +43,10 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={id}
           disabled={disabled}
+          // See `Input` for the reasoning. `Select` has no `description` prop, so there is only
+          // the error to associate.
+          aria-invalid={!!errorMessage || undefined}
+          aria-describedby={errorMessage ? `${id}-error` : undefined}
           className={cn(
             'h-10 rounded-full px-3 text-sm transition-all duration-500',
             'bg-transparent border border-default-200 hover:border-default-300',
@@ -63,7 +67,9 @@ const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ))}
         </select>
         {errorMessage && (
-          <p className="text-xs text-danger">{errorMessage}</p>
+          <p id={`${id}-error`} role="alert" className="text-xs text-danger">
+            {errorMessage}
+          </p>
         )}
       </div>
     );

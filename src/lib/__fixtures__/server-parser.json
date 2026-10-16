@@ -1,0 +1,443 @@
+[
+  {
+    "id": "typical",
+    "why": "the ordinary shape: sections, items with a pipe subtitle, an italic date range, bullets",
+    "markdown": "## 关于我\n\n5 年后端经验，专注高并发与数据一致性。\n\n## 工作经历\n\n### 高级后端工程师 | 某某科技\n\n*2021.03 - 2024.06*\n\n- 负责简历解析服务\n- 主导分库分表改造\n\n### 后端工程师 | 另一家公司\n\n*2019.07 - 2021.02*\n\n- 维护订单系统\n\n## 教育经历\n\n### 计算机科学与技术 | 某某大学\n\n*2015.09 - 2019.06*\n",
+    "sections": [
+      {
+        "title": "关于我",
+        "kind": "summary",
+        "content": "5 年后端经验，专注高并发与数据一致性。"
+      },
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "高级后端工程师",
+            "subtitle": "某某科技",
+            "date": "2021.03 - 2024.06",
+            "details": [
+              "负责简历解析服务",
+              "主导分库分表改造"
+            ]
+          },
+          {
+            "title": "后端工程师",
+            "subtitle": "另一家公司",
+            "date": "2019.07 - 2021.02",
+            "details": [
+              "维护订单系统"
+            ]
+          }
+        ]
+      },
+      {
+        "title": "教育经历",
+        "kind": "education",
+        "items": [
+          {
+            "title": "计算机科学与技术",
+            "subtitle": "某某大学",
+            "date": "2015.09 - 2019.06"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "skills-dunhao",
+    "why": "顿号 is what this app's own documents use, and the frontend split on `,` alone so this rendered as one skill",
+    "markdown": "## 专业技能\n\nGo、PostgreSQL、Kubernetes、Redis\n",
+    "sections": [
+      {
+        "title": "专业技能",
+        "kind": "skills",
+        "content": "Go、PostgreSQL、Kubernetes、Redis"
+      }
+    ]
+  },
+  {
+    "id": "skills-mixed-separators",
+    "why": "every separator the ticket lists, half-width and full-width, in one line",
+    "markdown": "## 技能\n\nGo,PostgreSQL，Kubernetes、Redis；Docker;Git/CI|Linux\n",
+    "sections": [
+      {
+        "title": "技能",
+        "kind": "skills",
+        "content": "Go,PostgreSQL，Kubernetes、Redis；Docker;Git/CI|Linux"
+      }
+    ]
+  },
+  {
+    "id": "skills-bulleted",
+    "why": "a skill list written as bullets: no ###, so the bullets are the section's own content",
+    "markdown": "## 技能\n\n- Go\n- PostgreSQL\n- Kubernetes\n",
+    "sections": [
+      {
+        "title": "技能",
+        "kind": "skills",
+        "content": "- Go\n- PostgreSQL\n- Kubernetes"
+      }
+    ]
+  },
+  {
+    "id": "skills-as-item",
+    "why": "a skill list written as an ### item instead of a line, so the item path is exercised too",
+    "markdown": "## 技能\n\n### 后端\n\nGo、PostgreSQL\n",
+    "sections": [
+      {
+        "title": "技能",
+        "kind": "skills",
+        "content": "Go、PostgreSQL",
+        "items": [
+          {
+            "title": "后端"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "date-chinese-until-now",
+    "why": "2022年3月至今 has no punctuation separator, so the range can only be cut after the month",
+    "markdown": "## 工作经历\n\n### 工程师 | 公司\n\n*2022年3月至今*\n\n- 在做的事\n",
+    "sections": [
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "工程师",
+            "subtitle": "公司",
+            "date": "2022年3月至今",
+            "details": [
+              "在做的事"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "date-slash-single",
+    "why": "2022/03 is a single date with a month, and must not be read as a bare year",
+    "markdown": "## 教育经历\n\n### 某某大学\n\n*2022/03*\n",
+    "sections": [
+      {
+        "title": "教育经历",
+        "kind": "education",
+        "items": [
+          {
+            "title": "某某大学",
+            "date": "2022/03"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "date-bare-year-range",
+    "why": "*2022 - 2024* is a range of bare years, which are only valid as range endpoints",
+    "markdown": "## 教育经历\n\n### 某某大学\n\n*2022 - 2024*\n",
+    "sections": [
+      {
+        "title": "教育经历",
+        "kind": "education",
+        "items": [
+          {
+            "title": "某某大学",
+            "date": "2022 - 2024"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "date-chinese-dash",
+    "why": "a full-width em dash between two Chinese dates, which a Chinese IME produces",
+    "markdown": "## 工作经历\n\n### 工程师 | 公司\n\n*2022年3月—2024年6月*\n",
+    "sections": [
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "工程师",
+            "subtitle": "公司",
+            "date": "2022年3月—2024年6月"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "date-under-itemless-section",
+    "why": "a date line with no ### to describe: it must not leak into content as raw `*2022.03 - 2024.06*` (the skills splitter would turn it into a skill chip)",
+    "markdown": "## 工作经历\n\n*2022.03 - 2024.06*\n\n一段没有条目的描述。\n",
+    "sections": [
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "content": "一段没有条目的描述。"
+      }
+    ]
+  },
+  {
+    "id": "date-alone-under-skills",
+    "why": "the same stray date under 技能, where leaking into content is actively wrong: it would render as a skill named 2022.03",
+    "markdown": "## 技能\n\nGo、Rust\n\n*2022.03 - 2024.06*\n",
+    "sections": [
+      {
+        "title": "技能",
+        "kind": "skills",
+        "content": "Go、Rust"
+      }
+    ]
+  },
+  {
+    "id": "not-dates",
+    "why": "lines that look like dates but are content: a bare year, a version, a subtraction, prose opening with a year",
+    "markdown": "## 其他\n\n- 2022 年做的三件事\n- 版本 1.2.3 发布\n- 1 - 2\n\n2022\n\n2022 年做的三件事\n",
+    "sections": [
+      {
+        "title": "其他",
+        "kind": "other",
+        "content": "- 2022 年做的三件事\n- 版本 1.2.3 发布\n- 1 - 2\n\n2022\n\n2022 年做的三件事"
+      }
+    ]
+  },
+  {
+    "id": "kind-education-vs-experience",
+    "why": "教育经历 and 项目经历 both contain 经历, so rule order decides — the old frontend read both as experience",
+    "markdown": "## 教育经历\n\n### 学校\n\n## 项目经历\n\n### 项目\n\n## 工作经历\n\n### 公司\n",
+    "sections": [
+      {
+        "title": "教育经历",
+        "kind": "education",
+        "items": [
+          {
+            "title": "学校"
+          }
+        ]
+      },
+      {
+        "title": "项目经历",
+        "kind": "projects",
+        "items": [
+          {
+            "title": "项目"
+          }
+        ]
+      },
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "公司"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "kind-unknown-is-other",
+    "why": "an unrecognised section must stay `other` rather than being coerced into a category that renders wrongly",
+    "markdown": "## 获奖情况\n\n### 一等奖\n\n## 自我评价\n\n踏实。\n",
+    "sections": [
+      {
+        "title": "获奖情况",
+        "kind": "other",
+        "items": [
+          {
+            "title": "一等奖"
+          }
+        ]
+      },
+      {
+        "title": "自我评价",
+        "kind": "other",
+        "content": "踏实。"
+      }
+    ]
+  },
+  {
+    "id": "kind-latin-prefixes",
+    "why": "`tech` must match Technical Skills: the keywords are prefixes of the words people write",
+    "markdown": "## About Me\n\n一段话。\n\n## Technical Skills\n\nGo\n\n## Work Experience\n\n### Engineer | Co\n\n*2021/3 - 2022/6*\n\n## Projects\n\n### 一个项目\n\n## Education\n\n### 某某大学\n",
+    "sections": [
+      {
+        "title": "About Me",
+        "kind": "summary",
+        "content": "一段话。"
+      },
+      {
+        "title": "Technical Skills",
+        "kind": "skills",
+        "content": "Go"
+      },
+      {
+        "title": "Work Experience",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "Engineer",
+            "subtitle": "Co",
+            "date": "2021/3 - 2022/6"
+          }
+        ]
+      },
+      {
+        "title": "Projects",
+        "kind": "projects",
+        "items": [
+          {
+            "title": "一个项目"
+          }
+        ]
+      },
+      {
+        "title": "Education",
+        "kind": "education",
+        "items": [
+          {
+            "title": "某某大学"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "crlf",
+    "why": "every document currently on disk is CRLF, so the parser must normalise it and no stray \\r may reach a detail",
+    "markdown": "## 工作经历\r\n\r\n### 工程师 | 公司\r\n\r\n*2021.03 - 2024.06*\r\n\r\n- 一件事\r\n- 另一件事\r\n",
+    "sections": [
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "工程师",
+            "subtitle": "公司",
+            "date": "2021.03 - 2024.06",
+            "details": [
+              "一件事",
+              "另一件事"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "frontmatter-is-skipped",
+    "why": "an imported file still carries frontmatter; metadata lives in columns, so the fence must not become a section",
+    "markdown": "---\nname: 张三\ntitle: 后端工程师\n---\n\n## 关于我\n\n一段话。\n\n## 技能\n\nGo、Rust\n",
+    "sections": [
+      {
+        "title": "关于我",
+        "kind": "summary",
+        "content": "一段话。"
+      },
+      {
+        "title": "技能",
+        "kind": "skills",
+        "content": "Go、Rust"
+      }
+    ]
+  },
+  {
+    "id": "empty",
+    "why": "an empty document yields no sections rather than a phantom one",
+    "markdown": "",
+    "sections": []
+  },
+  {
+    "id": "prose-only",
+    "why": "content before any ## has nowhere to go and is dropped, rather than inventing a heading",
+    "markdown": "这是一段没有章节标题的正文。\n\n还有一行。\n",
+    "sections": []
+  },
+  {
+    "id": "h3-without-h2",
+    "why": "an ### before any ## is an orphan and must not fabricate a section",
+    "markdown": "### 工程师 | 公司\n\n- 一件事\n",
+    "sections": []
+  },
+  {
+    "id": "date-alone-in-a-middle-section",
+    "why": "the stray date is in a section that is *not* the last one, so a parser that strips only at its final flush keeps it while this one drops it — the client did exactly that",
+    "markdown": "## 技能\n\nGo、Rust\n\n*2022.03 - 2024.06*\n\n## 关于我\n\n一段话。\n",
+    "sections": [
+      {
+        "title": "技能",
+        "kind": "skills",
+        "content": "Go、Rust"
+      },
+      {
+        "title": "关于我",
+        "kind": "summary",
+        "content": "一段话。"
+      }
+    ]
+  },
+  {
+    "id": "trailing-date-on-heading",
+    "why": "a date written on the ### line itself, which people do write",
+    "markdown": "## 工作经历\n\n### 后端工程师 | 某某科技 | 2021.03 - 至今\n\n- 一件事\n",
+    "sections": [
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "后端工程师",
+            "subtitle": "某某科技",
+            "date": "2021.03 - 至今",
+            "details": [
+              "一件事"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pipe-in-subtitle",
+    "why": "only the first pipe separates, so a subtitle containing one is not truncated",
+    "markdown": "## 工作经历\n\n### 工程师 | 公司 | 部门\n\n- 一件事\n",
+    "sections": [
+      {
+        "title": "工作经历",
+        "kind": "experience",
+        "items": [
+          {
+            "title": "工程师",
+            "subtitle": "公司 | 部门",
+            "details": [
+              "一件事"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "blank-and-spacing",
+    "why": "excess blank lines and trailing spaces must not create empty sections, items or details",
+    "markdown": "## 关于我\n\n\n\n一段话。   \n\n\n\n## 技能\n\n\n\nGo  \n",
+    "sections": [
+      {
+        "title": "关于我",
+        "kind": "summary",
+        "content": "一段话。"
+      },
+      {
+        "title": "技能",
+        "kind": "skills",
+        "content": "Go"
+      }
+    ]
+  }
+]

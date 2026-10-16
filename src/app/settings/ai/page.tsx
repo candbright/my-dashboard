@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import {
   AlertTriangle,
   KeyRound,
-  Plug,
   Plus,
   ShieldCheck,
   Sparkles,
@@ -79,8 +78,7 @@ export default function UserAISettingsPage() {
   const [applying, setApplying] = useState(false);
   const [applyReason, setApplyReason] = useState('');
 
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const [showClear, setShowClear] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
@@ -308,23 +306,19 @@ export default function UserAISettingsPage() {
     }
   };
 
-  const handleTest = async () => {
-    const target = state?.resolvedSource === 'global' ? state.globalProviderId : selectedProvider;
-    if (!target) {
-      addToast('error', '请先选择要测试的提供商');
-      return;
-    }
-    setTesting(true);
-    setTestResult(null);
+  const handleTest = async (provider: ProviderView) => {
+    if (!provider.keyConfigured) return;
+    setTestingId(provider.id);
     try {
-      const result = await testConnection(target);
-      setTestResult(
+      const result = await testConnection(provider.id);
+      addToast(
+        'success',
         `连接成功 · ${result.model}${result.latencyMs ? ` · ${result.latencyMs} ms` : ''}`
       );
     } catch (err) {
-      setTestResult(err instanceof Error ? err.message : '连接测试失败');
+      addToast('error', err instanceof Error ? err.message : '连接测试失败');
     } finally {
-      setTesting(false);
+      setTestingId(null);
     }
   };
 
@@ -361,7 +355,7 @@ export default function UserAISettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
       >
-        <h1 className="text-2xl font-bold tracking-tight mb-1">API 配置</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-serif mb-1">API 配置</h1>
         <Card variant="bordered" className="mt-6 p-6">
           <p className="text-sm text-default-500">
             访客账号无法配置 AI。请注册或登录后再设置。
@@ -378,7 +372,7 @@ export default function UserAISettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
       >
-        <h1 className="text-2xl font-bold tracking-tight mb-1">API 配置</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-serif mb-1">API 配置</h1>
         <p className="text-sm text-default-500 mb-8">
           选择用于 AI 功能的提供商与密钥
         </p>
@@ -395,63 +389,46 @@ export default function UserAISettingsPage() {
         <div className="space-y-6">
           {/* Current effective source */}
           <Card variant="bordered" className="p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-[2rem] bg-primary/10 p-3">
-                  <Sparkles className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-serif text-base font-semibold text-foreground">
-                    当前生效的 AI 来源
-                  </h3>
-                  <p className="mt-1 text-sm text-default-500">
+            <div className="flex items-start gap-3">
+              <div className="rounded-[2rem] bg-primary/10 p-3">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-serif text-base font-semibold text-foreground">
+                  当前生效的 AI 来源
+                </h3>
+                <p className="mt-1 text-sm text-default-500">
+                  {state?.resolvedSource === 'global'
+                    ? '正在使用管理员配置的全局 API'
+                    : state?.resolvedSource === 'personal'
+                      ? '正在使用你自己的 API Key'
+                      : '尚未配置可用的 AI 来源，请在下方选择提供商并填写 API Key，或申请使用全局 API'}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Chip
+                    variant="flat"
+                    color={state?.resolvedSource ? 'success' : 'warning'}
+                    size="sm"
+                  >
                     {state?.resolvedSource === 'global'
-                      ? '正在使用管理员配置的全局 API'
+                      ? '全局 API'
                       : state?.resolvedSource === 'personal'
-                        ? '正在使用你自己的 API Key'
-                        : '尚未配置可用的 AI 来源，请在下方选择提供商并填写 API Key，或申请使用全局 API'}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Chip
-                      variant="flat"
-                      color={state?.resolvedSource ? 'success' : 'warning'}
-                      size="sm"
-                    >
-                      {state?.resolvedSource === 'global'
-                        ? '全局 API'
-                        : state?.resolvedSource === 'personal'
-                          ? '个人 API Key'
-                          : '未配置'}
+                        ? '个人 API Key'
+                        : '未配置'}
+                  </Chip>
+                  {state?.holdsGrant && (
+                    <Chip variant="flat" color="secondary" size="sm">
+                      已获得全局 API 使用权限
                     </Chip>
-                    {state?.holdsGrant && (
-                      <Chip variant="flat" color="secondary" size="sm">
-                        已获得全局 API 使用权限
-                      </Chip>
-                    )}
-                    {state?.hasPersonalKey && (
-                      <Chip variant="flat" color="default" size="sm">
-                        已保存个人密钥
-                      </Chip>
-                    )}
-                  </div>
+                  )}
+                  {state?.hasPersonalKey && (
+                    <Chip variant="flat" color="default" size="sm">
+                      已保存个人密钥
+                    </Chip>
+                  )}
                 </div>
               </div>
-              <Button
-                variant="bordered"
-                size="sm"
-                onClick={handleTest}
-                isLoading={testing}
-                isDisabled={!state?.resolvedSource}
-                startContent={<Plug className="h-3.5 w-3.5" />}
-              >
-                测试连接
-              </Button>
             </div>
-            {testResult && (
-              <p className="mt-4 rounded-full bg-default-100/60 px-4 py-2 text-sm text-default-600">
-                {testResult}
-              </p>
-            )}
           </Card>
 
           {/* Global API */}
@@ -548,6 +525,8 @@ export default function UserAISettingsPage() {
               onAdd={openAdd}
               onSetActiveModel={handleSetActiveModel}
               modelBusy={modelBusy}
+              onTest={handleTest}
+              testingId={testingId}
               emptyHint="还没有可用的提供商。点击「添加提供商」，从第三方厂商目录中选择，或自行填写。"
             />
 

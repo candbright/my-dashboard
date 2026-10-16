@@ -46,3 +46,17 @@ next-env.d.ts
 
 # local deployment scratch (server recon notes, session-only scripts)
 /.deploy-ref/
+
+# nested clone of https://github.com/Leonxlnx/taste-skill (skills copied into .agents/skills)
+/.taste-skill-src/
+
+# local agent skills checkout and session scratch
+/.agents/
+/.scratch/pagination-probe/
+/.scratch/*.png
+/.scratch/*.sql
+/.scratch/*.mjs
+/mydash-src.tar.gz
+
+# local-only JWT mint helper (signs with a real secret; never ship it)
+/scripts/mint-dev-token.mjs

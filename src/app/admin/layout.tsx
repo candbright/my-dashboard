@@ -9,6 +9,7 @@ const sidebarItems = [
   { href: '/admin/approvals', label: '审核管理' },
   { href: '/admin/users', label: '用户管理' },
   { href: '/admin/ai', label: 'API 全局设置' },
+  { href: '/admin/audit', label: '审计日志' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -46,9 +47,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </motion.aside>
 
         {/* Content */}
-        <main className="flex-1 min-w-0">
+        {/* Not a <main>: the document already has one in the root layout
+            (`id="main-content"`). A nested landmark would make the skip link
+            and a screen-reader's "main" shortcut disagree about where content
+            starts. */}
+        <div className="flex-1 min-w-0">
           {children}
-        </main>
+        </div>
       </div>
     </AuthGuard>
   );

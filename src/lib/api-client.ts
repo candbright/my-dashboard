@@ -19,6 +19,8 @@ import type {
   ProviderListPayload,
   UserAIState,
 } from './ai-providers';
+import { buildAuditQuery, type AuditListPayload, type AuditListQuery } from './audit';
+import { failureText, readErrorEnvelope } from './http-json';
 
 export type { AIProtocol };
 export { AI_PROTOCOLS, AI_PROTOCOL_LABELS } from './ai-providers';
@@ -36,18 +38,69 @@ const COOKIE_PATH = BASE_PATH || '/';
 
 let _token: string | null = null;
 
-/** Initialize token from localStorage on load and sync cookie ↔ localStorage */
+/** How long the cookie lives. Matches the server's session lifetime. */
+const COOKIE_MAX_AGE = 7 * 24 * 3600;
+
+/** The token in the cookie, or `null` when no such cookie is set. */
+function readTokenCookie(): string | null {
+  const prefix = `${TOKEN_KEY}=`;
+  const entry = document.cookie.split('; ').find((c) => c.startsWith(prefix));
+  if (!entry) return null;
+
+  const value = decodeURIComponent(entry.slice(prefix.length));
+  // An empty value means "no token", not "a token that is the empty string". A browser that has not
+  // finished dropping a cleared cookie still reports `auth_token=`, and reading that as a value
+  // would make every load rewrite the cookie it just cleared.
+  return value === '' ? null : value;
+}
+
+/**
+ * Writes the cookie Server Components read. The only writer, so the two ends cannot disagree.
+ *
+ * `path` is the base path rather than `/`: cookies are matched by path, so a cookie set for the
+ * deployment's own prefix is what a request into that prefix carries.
+ */
+function writeTokenCookie(token: string | null) {
+  document.cookie = token
+    ? `${TOKEN_KEY}=${encodeURIComponent(token)}; path=${COOKIE_PATH}; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
+    : `${TOKEN_KEY}=; path=${COOKIE_PATH}; max-age=0`;
+}
+
+/**
+ * Makes the cookie agree with the client's token, whichever way they currently disagree.
+ *
+ * # The defect this exists to prevent
+ *
+ * A server component has no localStorage: it reads the token from the cookie
+ * (`app/resume/[slug]/page.tsx`). So the cookie is not a cache of the session, it is the *whole*
+ * session as far as the server is concerned, and the two halves have to be kept equal by something.
+ *
+ * That something used to check the cookie's **presence** — a token was copied across only when no
+ * cookie existed at all — so a cookie holding a *different* token was left in place. Both halves
+ * then looked authenticated, as different people: 我的 lists the resumes the client's token owns,
+ * and the page that opens from that list asks the server with the other token.
+ *
+ * The server's answer to that is `403 NO_ACCESS`, and `/resume/[slug]` rendered every non-404
+ * answer as 「页面不存在」 — so the resume the user had just saved appeared not to exist.
+ *
+ * Comparing *values* rather than existence is the fix, and it makes the call idempotent: writing
+ * only on a real difference means it can run on every load without touching the cookie jar.
+ */
+function syncTokenCookie(token: string | null) {
+  if (readTokenCookie() === token) return;
+  writeTokenCookie(token);
+}
+
+/**
+ * Initialize token from localStorage on load, and make the cookie agree with it.
+ *
+ * In this order deliberately: localStorage is the client's truth (`getToken` re-reads it), so the
+ * cookie is brought to it rather than the other way round.
+ */
 if (typeof window !== 'undefined') {
-  _token = localStorage.getItem(TOKEN_KEY);
-  const hasCookie = document.cookie.split('; ').some((c) => c.startsWith(`${TOKEN_KEY}=`));
-  if (_token && !hasCookie) {
-    // localStorage has token but cookie is missing — sync cookie so Server
-    // Components (SSR) can access the auth token on next navigation.
-    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(_token)}; path=${COOKIE_PATH}; max-age=${7 * 24 * 3600}; SameSite=Lax`;
-  } else if (!_token && hasCookie) {
-    // localStorage was cleared but cookie still exists — clear the stale cookie.
-    document.cookie = `${TOKEN_KEY}=; path=${COOKIE_PATH}; max-age=0`;
-  }
+  // `|| null`, so a key that exists but holds the empty string counts as no session at all.
+  _token = localStorage.getItem(TOKEN_KEY) || null;
+  syncTokenCookie(_token);
 }
 
 /**
@@ -67,12 +120,12 @@ export function setToken(token: string | null) {
   if (typeof window !== 'undefined') {
     if (token) {
       localStorage.setItem(TOKEN_KEY, token);
-      // Sync to cookie so Server Components can read the token
-      document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=${COOKIE_PATH}; max-age=${7 * 24 * 3600}; SameSite=Lax`;
     } else {
       localStorage.removeItem(TOKEN_KEY);
-      document.cookie = `${TOKEN_KEY}=; path=${COOKIE_PATH}; max-age=0`;
     }
+    // Via the one writer, so signing in and the page-load sync cannot disagree about the cookie's
+    // attributes — a second `document.cookie` string here is how they would drift apart.
+    writeTokenCookie(token);
   }
 }
 
@@ -111,6 +164,28 @@ export async function apiFetch(
     : path;
 
   return fetch(url, { ...options, headers });
+}
+
+/**
+ * A request that reached the server and came back with a failure status.
+ *
+ * `apiFetch` returns the `Response` for every status instead of throwing, so raising is the
+ * caller's job — and until this type existed the caller had no way to pass the status along.
+ * That mattered: `classifyFailure` in `autosave-failure.ts` decides whether a retry is worth
+ * anything *from the status*, so with none attached every failure looked like a transport
+ * error and was retried five times with backoff, 403 and 404 included.
+ *
+ * A network or timeout failure is still a `TypeError` with no status, which is exactly the
+ * distinction the retry decision needs.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
 }
 
 /**
@@ -154,15 +229,14 @@ export async function apiDelete(path: string): Promise<Response> {
 // AI settings and provider registry
 // ──────────────────────────────────────────────────────────────
 //
-// Two naming conventions still meet here:
+// A reply's spelling comes from the **Go struct's own `json` tags**, because the server replaces
+// kratos' response encoder with `encoding/json` for every route, proto routes included
+// (`kratos-server/internal/server/http.go`; see its AGENTS.md §API conventions). Concretely:
+// proto replies are snake_case (`latency_ms`), the hand-written AI/provider structs are camelCase
+// (`baseUrl`) — so the spelling identifies the *struct*, never the encoder or the route, and a
+// camelCase payload is not evidence that a hand-written handler answered.
 //
-//   /api/ai/test                    → a proto-generated struct, so its fields
-//                                     arrive as snake_case (latency_ms)
-//   everything else in this block   → hand-written camelCase handlers
-//
-// The camelCase handlers exist because the proto encoder emits snake_case, which
-// has already caused one round of silently-undefined fields on these pages.
-// Normalising the one remaining proto route keeps consumers on one spelling.
+// `normalizeTestResult` below exists because `/api/ai/test` is a proto route, hence `latency_ms`.
 
 export interface NormalizedTestResult {
   success: boolean;
@@ -193,17 +267,16 @@ export function normalizeTestResult(data: unknown): NormalizedTestResult {
 // Provider registry (shared by both settings pages)
 // ──────────────────────────────────────────────────────────────
 //
-// These routes are custom (non-proto) handlers and answer camelCase, so no
-// normalisation is needed.
+// Hand-written structs, authored with camelCase tags — see the block above.
 
-/** Read back an error message from a failed response. */
+/**
+ * The message to show for a failed response.
+ *
+ * A one-line wrapper so this module's 22 callers keep a readable spelling; the rule about the
+ * server's text versus the fallback lives in `http-json.ts`.
+ */
 async function readError(res: Response, fallback: string): Promise<string> {
-  try {
-    const data = await res.json();
-    return (data?.error as string) || fallback;
-  } catch {
-    return fallback;
-  }
+  return failureText(await readErrorEnvelope(res), res.status, fallback);
 }
 
 export async function listProviders(): Promise<ProviderListPayload> {
@@ -461,5 +534,29 @@ export async function revokePermission(params: {
 }): Promise<{ success: boolean }> {
   const res = await apiPost('/api/admin/permissions/revoke', params);
   if (!res.ok) throw new Error(await readError(res, '撤销权限失败'));
+  return res.json();
+}
+
+// ──────────────────────────────────────────────────────────────
+// Audit (ADR-0011)
+// ──────────────────────────────────────────────────────────────
+
+export type { AuditListPayload, AuditListQuery };
+
+export async function listAdminAuthEvents(params: AuditListQuery = {}): Promise<AuditListPayload> {
+  const res = await apiFetch(`/api/admin/audit/auth${buildAuditQuery(params)}`);
+  if (!res.ok) throw new ApiError(await readError(res, '获取认证事件失败'), res.status);
+  return res.json();
+}
+
+export async function listAdminAuditEvents(params: AuditListQuery = {}): Promise<AuditListPayload> {
+  const res = await apiFetch(`/api/admin/audit/events${buildAuditQuery(params)}`);
+  if (!res.ok) throw new ApiError(await readError(res, '获取审计事件失败'), res.status);
+  return res.json();
+}
+
+export async function listMyAuditEvents(params: AuditListQuery = {}): Promise<AuditListPayload> {
+  const res = await apiFetch(`/api/me/audit-events${buildAuditQuery(params)}`);
+  if (!res.ok) throw new ApiError(await readError(res, '获取活动失败'), res.status);
   return res.json();
 }

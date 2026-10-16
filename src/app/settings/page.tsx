@@ -173,7 +173,7 @@ export default function SettingsAccountPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.25, 0.4, 0.25, 1] }}
     >
-      <h1 className="text-2xl font-bold tracking-tight mb-6">账号</h1>
+      <h1 className="text-2xl font-bold tracking-tight font-serif mb-6">账号</h1>
       <Divider className="mb-6" />
 
       {isGuest && (

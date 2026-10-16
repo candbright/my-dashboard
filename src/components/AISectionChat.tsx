@@ -6,6 +6,7 @@ import {
   Sparkles, Send, X, Loader2, RotateCcw, ChevronUp,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import { readSSEStream } from '@/lib/sse';
 import { Button } from '@/components/ui';
 
 interface ChatMsg {
@@ -13,6 +14,8 @@ interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
   isStreaming?: boolean;
+  /** A non-fatal fact about the request, e.g. that input was truncated. */
+  notice?: string;
 }
 
 interface AISectionChatProps {
@@ -73,57 +76,6 @@ function getPresets(title: string): string[] {
     if (title.includes(key)) return presets;
   }
   return DEFAULT_PRESETS;
-}
-
-/** Helper: read SSE stream and return collected text */
-async function readSSEStream(
-  res: Response,
-  onChunk: (text: string) => void
-): Promise<string> {
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error('未收到响应流');
-
-  const decoder = new TextDecoder();
-  let text = '';
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith('data: ')) continue;
-      const data = trimmed.slice(6);
-      if (data === '[DONE]') continue;
-      try {
-        const parsed = JSON.parse(data);
-        if (parsed.content) {
-          text += parsed.content;
-          onChunk(text);
-        }
-      } catch { /* skip */ }
-    }
-  }
-
-  if (buffer.trim()) {
-    const trimmed = buffer.trim();
-    if (trimmed.startsWith('data: ') && trimmed.slice(6) !== '[DONE]') {
-      try {
-        const parsed = JSON.parse(trimmed.slice(6));
-        if (parsed.content) {
-          text += parsed.content;
-          onChunk(text);
-        }
-      } catch { /* skip */ }
-    }
-  }
-
-  return text;
 }
 
 export function AISectionChat({
@@ -229,18 +181,29 @@ export function AISectionChat({
         throw new Error(errData.error || 'AI 对话失败');
       }
 
-      const fullResponse = await readSSEStream(res, (text) => {
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantMsg.id ? { ...m, content: text } : m
-          )
-        );
+      const result = await readSSEStream(res, {
+        onChunk: (text) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === assistantMsg.id ? { ...m, content: text } : m
+            )
+          );
+        },
+        // e.g. the section was too long and was truncated before being sent.
+        // Without surfacing this the user would just get a shorter answer.
+        onNotice: (notice) => {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === assistantMsg.id ? { ...m, notice } : m
+            )
+          );
+        },
       });
 
       setMessages(prev =>
         prev.map(m =>
           m.id === assistantMsg.id
-            ? { ...m, content: fullResponse, isStreaming: false }
+            ? { ...m, content: result.text, isStreaming: false }
             : m
         )
       );
@@ -389,6 +352,11 @@ export function AISectionChat({
                       </div>
                     ) : (
                       <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
+                    {msg.notice && (
+                      <p className="mt-2 pt-2 border-t border-default-200 text-[11px] leading-relaxed text-warning">
+                        {msg.notice}
+                      </p>
                     )}
                   </div>
                 </div>

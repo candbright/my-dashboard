@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import { Chip, Card, CardBody, Button } from '@/components/ui';
-import type { ChipProps } from '@/components/ui/Chip';
+import { Chip, Card, CardBody, Button, type ChipProps } from '@/components/ui';
 
 interface ResumeCardProps {
   id: string;
@@ -82,7 +81,16 @@ export function ResumeCard({
                 color="danger"
                 isIconOnly
                 size="sm"
-                className="opacity-0 group-hover:opacity-100 ml-2"
+                /*
+                 * Revealed on hover *and* on focus. `opacity-0` does not remove an element from the
+                 * tab order, so before this the button was reachable by keyboard while invisible —
+                 * the user would tab onto a control they could not see, which is WCAG 2.4.7
+                 * (Focus Visible, AA). `group-focus-within` is what makes it appear the moment it
+                 * takes focus. The `aria-label` names it, because an icon alone has no accessible
+                 * name (4.1.2).
+                 */
+                aria-label={`删除「${title || '未命名简历'}」`}
+                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 ml-2"
                 onClick={() => onDelete(id)}
               >
                 <Trash2 className="w-3.5 h-3.5" />

@@ -353,7 +353,64 @@ export function NewComponent({ className, ...props }: NewComponentProps) {
 
 - `npm run dev` — 启动开发服务器 (Turbopack)
 - `npm run build` — 生产构建 + TypeScript 类型检查
-- 每次修改后应运行 `npm run build` 验证无类型错误
+- `npm run test` — 运行单元测试（vitest，单次）
+- `npm run test:watch` — 监听模式
+- `npm run verify:print` — **真实浏览器**验证打印导出的 PDF 文字层（见下）
+- `npm run verify:ats` — 用**真实 PDF 字节**验证 ATS 体检报告（见下）
+- `npm run verify:template` — **真实浏览器**验证模板渲染的分页与文字层（见下）
+- 每次修改后应运行 `npm run build` 验证无类型错误；改动核心链路（解析、导出、渲染）时同时运行 `npm run test`
+
+### 浏览器端验证（vitest 覆盖不到的部分）
+
+`npm run verify:print` 驱动真实 Chromium 走一遍打印导出，再用 `extractPdfText` 断言真实产物字节。用于**只有浏览器才能验证**的事：打印样式、分页、PDF 文字层是否真的可抽取。
+
+Chrome 没有以编程方式触发打印**对话框**的 API，所以这类验收只能这样验；脚本**退出码非 0 即失败**，可当门禁。
+
+- 环境变量 `VERIFY_CHROMIUM=<path>`：复用已有的 Chromium，避免 Playwright 因版本固定而重新下载约 400 MB。
+- 环境变量 `VERIFY_BASE_URL`：目标地址，默认 `http://localhost:30002`。
+- 环境变量 `VERIFY_DEBUG=1`：打印分页测量明细。
+
+`npm run verify:ats` 用 `src/lib/pdf-fixtures.ts` 生成的真实 PDF（有文字层 / 位图无文字层 / 含 U+FFFD）驱动 ATS 体检报告，断言 ADR-0005 的边界：**报告中不得存在任何形式的合成分数**（按字段名断言），每条风险可溯源到具名规则。同样以退出码为门禁。
+
+`npm run verify:template` 渲染**真实的模板组件**（不是手写示例 HTML），在真实布局里测量，再用真实的分页代码打包并打印，断言页数、表头是否每页重复、章节标题有没有被孤立在页尾、PDF 文字层是否可抽取且无 `�`。
+
+**它存在的理由值得记下来**：`verify:print` 用的是**手写**的示例 HTML，而手写 HTML 总是与代码的预期一致——所以它无法发现渲染器产出的形状变了。工单 20 正是这种情况：模板开始把章节包进一层 stack、把条目包进另一层，而分页把打印根的每个子元素当作不可分割的块，于是**整份简历静默变成一块**：一次分页、一页纸、布局看起来完全正常，全部既有测试通过。因此：
+
+- 新增/修改模板后，`verify:print` 通过**不能**说明渲染路径没坏，必须跑 `verify:template`。
+- 分页的单位是**条目**。渲染器里任何包住条目的容器都必须带 `data-print-flatten`，否则它会被当成一个不可分割的块。这条约束有测试钉住（`export-pdf.test.ts` 的 `flattenPrintFlow against the real print view`）。
+- 条目之间的间距用 **CSS margin**（`.resume-entry + .resume-entry`）而不是 flex `gap`：分页逐个测量条目，而 `gap` 属于容器，不计入任何条目的高度，会让页面被塞入实际放不下的内容。
+
+### Node 脚本导入应用模块
+
+验证脚本要导入 `.ts` 源码（`node` 原生剥离类型），但**不解析 `@/*` 别名**。别名由 `scripts/alias-loader.mjs` 提供，**不要**为了脚本可运行而把源码里的 `@/` 导入改成相对路径：
+
+```
+node --import ./scripts/alias-loader.mjs scripts/xxx.mjs
+```
+
+`.tsx` 无法被 `node` 剥离（含 JSX），所以需要脚本驱动的逻辑要放在 `.ts` 模块里——例如 `ats-analyse.ts` 就是从 `AtsPreview.tsx` 里抽出来的。
+
+### 测试约定
+
+| 项 | 约定 |
+|---|---|
+| 位置 | **与被测文件同目录**（colocated），不用单独的 `__tests__/` 目录 |
+| 命名 | `<被测文件名>.test.ts` / `.test.tsx` |
+| runner | vitest（`vitest.config.mts`），`@/*` 别名原生解析，无需插件 |
+| 环境 | 默认 `node`。只有真正需要 `document`/`window` 的测试才在文件首行加 `// @vitest-environment happy-dom` |
+| 导入 | 从 `'vitest'` 显式导入 `describe` / `it` / `expect`（`globals: true` 仅为兼容从文档复制的用例） |
+| 范围 | 只测**纯逻辑**（解析、序列化、PDF 文字层）。前端测试**不连后端**；后端行为由 `kratos-server` 的 Go 测试负责 |
+| 目标 | **防回归**，不是覆盖率。优先覆盖：PDF 文字层、解析/回写幂等、日期与技能分隔符边界、YAML 特殊字符 |
+
+**不要**为了凑覆盖率写无意义断言（`expect(true).toBe(true)`）。
+
+### 记录已知缺陷
+
+已确认存在、但尚未修复的缺陷，用 **`it.fails(...)`** 承载断言（注意 vitest 5 是复数 `fails`）：用例会运行、当前必须失败、套件保持绿色。这样缺陷**有可复现的证据**而不是只有一句描述，并且修复后该用例会自动变成失败，提醒把它改成普通 `it`。
+
+例：`src/lib/resume-builder.test.ts` 中「no YAML escaping」分组，对应工单 17。
+
+> `npm run test` 由 `.scratch/resume-platform/issues/01-frontend-test-infra.md` 引入（已完成）。
 
 ---
 
@@ -363,6 +420,13 @@ export function NewComponent({ className, ...props }: NewComponentProps) {
 
 Issues live as local markdown files under `.scratch/<feature-slug>/` in this repo — not on GitHub. See `docs/agents/issue-tracker.md`.
 
+当前活跃的 feature：**`.scratch/resume-platform/`** — 平台重构（44 个工单，含 `spec.md`）。
+
 ### Domain docs
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+**这两个位置的内容现已存在，必须按其约定使用，不要再按"文件不存在则静默继续"处理：**
+
+- [`CONTEXT.md`](./CONTEXT.md) — 领域词汇表。**在 issue、提案、测试名、提交信息中出现的领域概念必须使用其中的术语**，不要漂移到近义词（该文件末尾有「明确避免的用法」对照表）。
+- [`docs/adr/`](./docs/adr/0000-index.md) — 架构决策记录。**动手前先读相关 ADR**；若某项工作与已有 ADR 冲突，**显式指出**，不要静默推翻。
